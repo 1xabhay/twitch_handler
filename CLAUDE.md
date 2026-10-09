@@ -19,4 +19,5 @@ TBD (pending decision).
 
 ## Ledger
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
+- 2026-10-09 — Toolkit research graded in docs/RESEARCH.md. BUILD candidates: viewer greeting, focus timer, task list, check-ins/recap, question queue, text commands, mode switch. Everything else uses Twitch-native or free tools.
 - 2026-10-09 — Repo initialized: git, CLAUDE.md, .gitignore, .env.example. Stack and feature scope still to be decided.
