@@ -22,7 +22,7 @@ Twitch handler app. Intended to be open-sourced.
 ## Running
 - `.env`: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL, TWITCH_BOT (bot = channel for now).
 - Login once: `twitch configure` then `twitch token -u -s "user:read:chat user:write:chat"`; tokens saved to `user.token.json` (gitignored, Twurple refreshes + rewrites it).
-- `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored).
+- `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored). OBS browser source: http://localhost:3001/town (1920x1080).
 
 ## Style
 - Bot voice: playful & witty. Speaks only when needed (greetings, timer, command replies) — no timed spam.
@@ -35,6 +35,7 @@ Twitch handler app. Intended to be open-sourced.
 
 ## Ledger
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
+- 2026-10-09 — Pixel town v1: `!task`/`!done` (one building per viewer, floors = tasks done, lit window = active task). Overlay at localhost:3001/town via SSE, bound to 127.0.0.1. Chosen over constellation/mural/voyage: builds on task list, fits pixel style.
 - 2026-10-09 — First live run: greeting works in real chat (#halfopeneyes). Bot posts as the channel owner (no bot account yet). Offline "stream" = calendar day.
 - 2026-10-09 — Stack chosen: TS + Twurple; build our own (borrow Dirework command names). Style picked. First feature: `greet` (viewer memory), TDD.
 - 2026-10-09 — Toolkit research graded in docs/RESEARCH.md. BUILD candidates: viewer greeting, focus timer, task list, check-ins/recap, question queue, text commands, mode switch. Everything else uses Twitch-native or free tools.

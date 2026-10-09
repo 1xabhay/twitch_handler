@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Pixel Town</title>
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  /* Draw at 480x270, scale up 4x to 1920x1080 with hard pixel edges. */
+  canvas { width: 100vw; height: 100vh; image-rendering: pixelated; }
+</style>
+<canvas width="480" height="270"></canvas>
+<script>
+  const ctx = document.querySelector('canvas').getContext('2d');
+  const GROUND = 262, W = 16, GAP = 4, FLOOR = 8;
+  const BODY = ['#8b6d9c', '#4b7f8c', '#a0705a', '#6d8b5a', '#5a6d9c', '#9c8b5a'];
+  const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+
+  const draw = (town) => {
+    ctx.clearRect(0, 0, 480, 270);
+    ctx.fillStyle = '#3b3b4f';
+    ctx.fillRect(0, GROUND, 480, 8);
+    // ponytail: single row fits ~24 buildings; wrap into rows/streets when the town outgrows it.
+    Object.values(town).forEach((b, i) => {
+      const x = 4 + i * (W + GAP), h = (b.floors + 1) * FLOOR, top = GROUND - h;
+      ctx.fillStyle = BODY[hash(b.name) % BODY.length];
+      ctx.fillRect(x, top, W, h);
+      ctx.fillStyle = '#2a2a3a';
+      ctx.fillRect(x - 1, top - 2, W + 2, 2); // roof
+      for (let f = 0; f <= b.floors; f++) {
+        const lit = b.task && f === b.floors; // top floor glows while working
+        ctx.fillStyle = lit ? '#ffd966' : '#2a2a3a';
+        const y = GROUND - (f + 1) * FLOOR + 2;
+        ctx.fillRect(x + 3, y, 3, 3);
+        ctx.fillRect(x + 10, y, 3, 3);
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '5px monospace';
+      ctx.fillText(b.name.slice(0, 5), x, GROUND + 7);
+    });
+  };
+
+  new EventSource('/events').onmessage = (e) => draw(JSON.parse(e.data));
+</script>
