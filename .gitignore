@@ -4,3 +4,4 @@
 !.env.example
 *.token.json
 node_modules/
+data/

@@ -19,6 +19,11 @@ Twitch handler app. Intended to be open-sourced.
 - Vitest for tests (`npm test`), `npm run typecheck`. twitch-cli for mocking events.
 - Pure functional core in `src/*.ts` with `*.test.ts` beside it; Twitch/OBS I/O only at the edges.
 
+## Running
+- `.env`: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL, TWITCH_BOT (bot = channel for now).
+- Login once: `twitch configure` then `twitch token -u -s "user:read:chat user:write:chat"`; tokens saved to `user.token.json` (gitignored, Twurple refreshes + rewrites it).
+- `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored).
+
 ## Style
 - Bot voice: playful & witty. Speaks only when needed (greetings, timer, command replies) — no timed spam.
 - Visuals: pixel art / retro. Calm motion, no loud alerts (co-working friendly).
@@ -30,6 +35,7 @@ Twitch handler app. Intended to be open-sourced.
 
 ## Ledger
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
+- 2026-10-09 — First live run: greeting works in real chat (#halfopeneyes). Bot posts as the channel owner (no bot account yet). Offline "stream" = calendar day.
 - 2026-10-09 — Stack chosen: TS + Twurple; build our own (borrow Dirework command names). Style picked. First feature: `greet` (viewer memory), TDD.
 - 2026-10-09 — Toolkit research graded in docs/RESEARCH.md. BUILD candidates: viewer greeting, focus timer, task list, check-ins/recap, question queue, text commands, mode switch. Everything else uses Twitch-native or free tools.
 - 2026-10-09 — Repo initialized: git, CLAUDE.md, .gitignore, .env.example. Stack and feature scope still to be decided.
