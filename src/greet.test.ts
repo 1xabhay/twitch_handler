@@ -8,6 +8,7 @@ describe('greet', () => {
     const { viewers, message } = greet({}, sam, 'stream-a');
     expect(message).toContain('@sam');
     expect(message).toMatch(/first/i);
+    expect(message).toContain('!task'); // the one thing a newcomer needs to join in
     expect(viewers['1']).toEqual({ streams: 1, lastStream: 'stream-a' });
   });
 

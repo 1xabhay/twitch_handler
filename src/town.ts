@@ -5,7 +5,7 @@ export type Floor = { task: string; done: boolean; kind?: Kind; at?: number }; /
 export type Building = { name: string; floors: Floor[] };
 export type Town = Readonly<Record<string, Building>>;
 
-const MAX_TASK = 60;
+const MAX_TASK = 60, MAX_OPEN = 10; // per viewer: one person can't flood the street
 
 // Each !task adds a floor (numbered from 1 at the bottom). Open floors are under construction;
 // !done N finishes one, !remove N drops an open one, !tasks lists what's open.
@@ -44,7 +44,9 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
     case 'task': {
       const task = rest.trim().slice(0, MAX_TASK);
       if (!task) return keep(`try: !task <what you're working on> 🔨`);
-      return save([...floors, { task, done: false, kind: pickKind(rand), at: now }], `floor ${floors.length + 1} under construction: "${task}" 🏗️`);
+      if (openNums.length >= MAX_OPEN) return keep(`${MAX_OPEN} things under construction already 😅 !done one first`);
+      const kind = pickKind(rand);
+      return save([...floors, { task, done: false, kind, at: now }], `floor ${floors.length + 1}: a ${kind} is going up for "${task}" 🏗️`);
     }
     case 'done': { // !done, !done 2, !done 1 3 5
       const words = rest.trim() ? rest.trim().split(/[\s,]+/) : [];
@@ -58,6 +60,8 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
         ? `floor ${ks[0]} done: "${floors[ks[0]! - 1]!.task}"! lights on 💡`
         : `floors ${ks.join(', ')} done! lights on 💡`);
     }
+    case 'help':
+      return keep(`🏙️ !task <thing> puts up a building under scaffolding · !done N lights it up · !tasks lists yours · the streamer's focus blocks build landmarks`);
     case 'tasks':
       return openNums.length
         ? keep(`🏗️ ${openNums.map((i) => `${i}: ${floors[i - 1]!.task}`).join(' · ')}`)

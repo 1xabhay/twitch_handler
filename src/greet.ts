@@ -10,6 +10,6 @@ export const greet = (viewers: Viewers, { userId, userName }: Chatter, streamId:
   const streams = (seen?.streams ?? 0) + 1;
   const message = seen
     ? `@${userName} returns for round ${streams}. legend. 🕹️`
-    : `a wild @${userName} appears! 👀 first time? we don't bite (much)`;
+    : `a wild @${userName} appears! 👀 first time? grab a hard hat: !task <what you're working on> builds you something in town 🏗️`;
   return { viewers: { ...viewers, [userId]: { streams, lastStream: streamId } }, message };
 };

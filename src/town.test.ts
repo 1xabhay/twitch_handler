@@ -155,3 +155,23 @@ describe('stepLandmark', () => {
     expect(stepLandmark(town, { wasFocus: false, isFocus: false, natural: true, min: 10 }, 0, 1)).toBe(town);
   });
 });
+
+describe('onboarding and limits', () => {
+  it('!help explains the city loop', () => {
+    const r = handleCommand({}, sam, '!help');
+    expect(r?.reply).toContain('!task');
+    expect(r?.reply).toContain('!done');
+    expect(r?.town).toEqual({});
+  });
+
+  it('!task says what is going up, so viewers can spot theirs without names on screen', () => {
+    expect(handleCommand({}, sam, '!task read', 0, 1)?.reply).toContain(POOL[0]);
+  });
+
+  it('caps open tasks per viewer so a flood cannot fill the street', () => {
+    const town = samWith(...Array.from({ length: 10 }, (_, i) => open(`t${i}`)));
+    const r = handleCommand(town, sam, '!task one more');
+    expect(r?.town).toBe(town);
+    expect(r?.reply).toContain('!done');
+  });
+});
