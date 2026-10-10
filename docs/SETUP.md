@@ -31,6 +31,8 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 - OBS: Video Capture Device → GoPro Webcam.
 - USB webcam mode is **video only** — Media Mod mic needs HDMI + capture card. Use the Mac mic or a wired headset instead (avoid AirPods mic: low-quality call mode).
 
+- **Black GoPro in OBS** (GoPro preview fine, menu bar icon blue): double-click the Video Capture Device → switch Device to another camera, then back to the GoPro → OK. OBS holds a stale handle when it starts before the GoPro is ready. Tip: turn the GoPro on *before* opening OBS.
+
 ## Audio
 - Settings → Audio → Mic/Aux → your mic. Peak in yellow, never red.
 - Filters: Noise Suppression (RNNoise), then Compressor.
