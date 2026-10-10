@@ -20,8 +20,8 @@ Twitch handler app. Intended to be open-sourced.
 - Pure functional core in `src/*.ts` with `*.test.ts` beside it; Twitch/OBS I/O only at the edges.
 
 ## Running
-- `.env`: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL, TWITCH_BOT (bot = channel for now).
-- Login once: `twitch configure` then `twitch token -u -s "user:read:chat user:write:chat channel:manage:broadcast"`; tokens saved to `user.token.json` (gitignored, Twurple refreshes + rewrites it).
+- `.env`: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL (heyisamy), TWITCH_BOT (halfopeneyes).
+- Login: `twitch configure` once, then `npm run login -- bot` (as the bot account) and `npm run login -- channel` (as the broadcaster). Device-code flow: open the printed URL in a window logged in as that account. Tokens → `tokens/<userId>.json` (gitignored, Twurple refreshes them). Bot must be a mod in the channel (`/mod <bot>`).
 - `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored). OBS browser source: http://localhost:3001/town (1920x1080).
 
 ## Style
@@ -36,6 +36,7 @@ Twitch handler app. Intended to be open-sourced.
 
 ## Ledger
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
+- 2026-10-10 — Moved to new channel **heyisamy** (name hunt: real words/first names exhausted on Twitch; Isamy ~ Japanese isamu "courage", echoing user's name). halfopeneyes is now the bot (mod, Chat Bot badge via app-token send). Multi-account tokens in tokens/, `npm run login -- bot|channel` with device-code flow.
 - 2026-10-10 — Living town: builders (chatters in last 30 min, `!leave`/`!join` opt-out) walk + hammer at their scaffolding; day/night sky on local clock, stars/moon, clouds, birds, seasonal trees, lamps, deterministic daily rain/snow, roof cat; follow = delivery truck, raid = bus drops off builders. Pure scene logic in src/scene/ served to browser via node:module stripTypeScriptTypes (no bundler). `?sky=0` disables backdrop.
 - 2026-10-10 — Town v2: floors are numbered tasks (`!task`, `!done N`, `!tasks`, `!remove N`, no limit). Wordless states from research: scaffolding+hazard band = in progress, lit windows = done, flag+roof garden = building complete. Shape not colour carries state (colorblind-safe). Added EventSub/chat logging after a silent no-events stream.
 - 2026-10-09 — Streaming setup done: OBS 32 + stream key, GoPro HERO11 via free official GoPro Webcam app (video only), Mac mic + RNNoise/Compressor, town overlay live in OBS. Captured in docs/SETUP.md.

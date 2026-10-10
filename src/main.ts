@@ -1,5 +1,5 @@
 // Imperative shell: Twitch I/O + file persistence. Logic lives in pure modules.
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { RefreshingAuthProvider } from '@twurple/auth';
 import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
@@ -12,16 +12,18 @@ import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
 if (!clientId || !clientSecret || !TWITCH_CHANNEL || !TWITCH_BOT) throw new Error('Missing TWITCH_* vars in .env');
 
-const TOKEN_FILE = 'user.token.json';
 const VIEWERS_FILE = 'data/viewers.json';
 const TOWN_FILE = 'data/town.json';
 const OVERLAY_PORT = 3001;
 const readJson = async <T>(path: string, fallback: T): Promise<T> =>
   readFile(path, 'utf8').then(JSON.parse, () => fallback);
 
+// One token file per logged-in account (bot + broadcaster), created by `npm run login -- bot|channel`.
 const auth = new RefreshingAuthProvider({ clientId, clientSecret });
-auth.onRefresh((_userId, token) => writeFile(TOKEN_FILE, JSON.stringify(token, null, 2)));
-await auth.addUserForToken(await readJson(TOKEN_FILE, null as never), ['chat']);
+auth.onRefresh((userId, token) => writeFile(`tokens/${userId}.json`, JSON.stringify(token, null, 2)));
+for (const file of await readdir('tokens').catch(() => [])) {
+  await auth.addUserForToken(await readJson(`tokens/${file}`, null as never));
+}
 
 const api = new ApiClient({ authProvider: auth });
 const [channel, bot] = await Promise.all([TWITCH_CHANNEL, TWITCH_BOT].map((n) => api.users.getUserByName(n)));
@@ -40,16 +42,17 @@ const listener = new EventSubWsListener({ apiClient: api });
 listener.onSubscriptionCreateFailure((sub, err) => console.error(`subscribe failed: ${sub.id}`, err));
 listener.onUserSocketDisconnect((_user, err) => console.error('eventsub disconnected', err ?? ''));
 listener.onStreamOnline(channel, (e) => { streamId = e.id; console.log(`live! stream ${streamId}`); });
-listener.onChannelFollow(channel, channel, (e) => push({ type: 'follow', name: e.userDisplayName }));
+listener.onChannelFollow(channel, bot, (e) => push({ type: 'follow', name: e.userDisplayName }));
 listener.onChannelRaidTo(channel, (e) => push({ type: 'raid', from: e.raidingBroadcasterDisplayName, viewers: e.viewers }));
 listener.onChannelChatMessage(channel, bot, (e) => handleChat(e).catch((err) => console.error('chat handler failed', err)));
 
 const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   console.log(`chat <${e.chatterName}> ${e.messageText}`);
+  if (e.chatterId === bot.id && bot.id !== channel.id) return; // separate bot account: ignore our own messages
   const chatter = { userId: e.chatterId, userName: e.chatterDisplayName };
-  const say = (text: string) => api.asUser(bot, (ctx) => ctx.chat.sendChatMessage(channel, text));
+  // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
+  const say = (text: string) => api.chat.sendChatMessageAsApp(bot, channel, text);
 
-  // No self-skip needed: greet() fires once per user per stream, and bot replies never start with "!".
   const hello = greet(viewers, chatter, streamId);
   if (hello.message) {
     viewers = hello.viewers;

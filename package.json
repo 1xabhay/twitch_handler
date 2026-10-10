@@ -9,7 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "start": "node --env-file=.env src/main.ts"
+    "start": "node --env-file=.env src/main.ts",
+    "login": "sh scripts/login.sh"
   },
   "keywords": [],
   "author": "",

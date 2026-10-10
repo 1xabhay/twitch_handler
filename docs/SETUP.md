@@ -11,8 +11,15 @@ What actually worked for a first-time setup.
 ```sh
 brew install twitchdev/twitch/twitch-cli
 twitch configure            # paste Client ID + Secret
-twitch token -u -s "user:read:chat user:write:chat channel:manage:broadcast"   # save tokens into user.token.json
-npm install && npm start
+npm install
+npm run login -- bot        # approve as the bot account (device code: open the URL in that account's window)
+npm run login -- channel    # approve as the broadcaster
+npm start
+```
+In the broadcaster's chat: `/mod <botname>` (lets the bot see follows and get the Chat Bot badge).
+
+Tip: use a separate bot account. Logging in through a browser that's signed into the wrong account silently authorizes that account — device-code flow avoids it.
+```
 ```
 
 ## OBS
