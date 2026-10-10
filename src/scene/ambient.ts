@@ -32,3 +32,12 @@ export const drift = (seed: number, t: number, width: number, pxPerSec: number) 
 // The cat naps on one roof, hopping to another every 10 minutes.
 export const catRoof = (buildings: number, t: number) =>
   buildings ? hash(String(Math.floor(t / 600_000))) % buildings : null;
+
+// Where the sun or moon is: f runs 0 → 1 across the sky (sunrise → sunset, sunset → next sunrise).
+// sunrise/sunset are today's times; a night is assumed to mirror today's day length.
+const DAY = 86_400_000;
+export const celestial = (t: number, { sunrise, sunset }: { sunrise: number; sunset: number }) => {
+  if (t >= sunrise && t < sunset) return { body: 'sun' as const, f: (t - sunrise) / (sunset - sunrise) };
+  const dusk = t >= sunset ? sunset : sunset - DAY, dawn = dusk === sunset ? sunrise + DAY : sunrise;
+  return { body: 'moon' as const, f: (t - dusk) / (dawn - dusk) };
+};

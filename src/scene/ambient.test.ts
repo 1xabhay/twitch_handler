@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catRoof, drift, phaseAt, phaseFromSun, seasonOf, weatherOn } from './ambient.ts';
+import { catRoof, drift, phaseAt, phaseFromSun, seasonOf, weatherOn, celestial } from './ambient.ts';
 
 describe('phaseAt (local hour)', () => {
   it.each([
@@ -72,4 +72,17 @@ describe('phaseFromSun (real sunrise/sunset)', () => {
     ['05:00', 'night'], ['06:50', 'dawn'], ['07:30', 'dawn'], ['12:00', 'day'],
     ['16:20', 'dusk'], ['17:00', 'dusk'], ['17:30', 'night'], ['23:00', 'night'],
   ])('%s in Philly mid-December is %s', (t, phase) => expect(phaseFromSun(at(t), sun)).toBe(phase));
+});
+
+describe('celestial', () => {
+  const H = 3_600_000, sun = { sunrise: 6 * H, sunset: 18 * H }; // a day on a simple clock
+  it('the sun crosses the sky from sunrise to sunset', () => {
+    expect(celestial(6 * H, sun)).toEqual({ body: 'sun', f: 0 });
+    expect(celestial(12 * H, sun)).toEqual({ body: 'sun', f: 0.5 });
+  });
+  it('the moon crosses the night, after sunset and before sunrise', () => {
+    expect(celestial(18 * H, sun)).toEqual({ body: 'moon', f: 0 });
+    expect(celestial(24 * H, sun)).toEqual({ body: 'moon', f: 0.5 }); // midnight, after sunset
+    expect(celestial(0, sun)).toEqual({ body: 'moon', f: 0.5 }); // same midnight, seen from before sunrise
+  });
 });

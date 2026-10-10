@@ -8,7 +8,7 @@
 </style>
 <canvas width="480" height="270"></canvas>
 <script type="module">
-  import { catRoof, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
+  import { catRoof, celestial, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
   import { cityLayout, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
   import { current } from '/lib/focus.ts';
@@ -172,11 +172,7 @@
         const sx = hash('sx' + i) % WIDTH, sy = top + (hash('sy' + i) % (GROUND - top - 20));
         if ((Math.floor(t / 1500) + i) % 9) px(sx, sy, 1, 1, '#FFFFFF'); // gentle twinkle
       }
-      const mx = WIDTH - 60, my = top + 8; // crescent moon
-      px(mx + 1, my, 3, 1, '#F4F1DE'); px(mx, my + 1, 5, 3, '#F4F1DE'); px(mx + 1, my + 4, 3, 1, '#F4F1DE');
-      px(mx + 2, my + 1, 3, 3, SKIES.night[0]);
     }
-    if (phase === 'day') px(WIDTH - 60, top + 8, 6, 6, '#FFE38A');
     if (weather === 'clear' || phase === 'night') {
       for (let i = 0; i < 3; i++) { // clouds
         const cx = drift(i + 1, t, WIDTH, 2 + i), cy = top + 6 + i * 9;
@@ -214,6 +210,45 @@
     px(x + 4, y - (Math.floor(t / 2500) % 4 === 0 ? 3 : 1), 1, 1, C.cat); // tail flick now and then
   };
 
+  // --- sun/moon clock: the body follows local time across the sky and carries the focus timer --------
+  const FONT = { // 3x5 pixel digits, crisp at 4x
+    0: '111101101101111', 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001',
+    5: '111100111001111', 6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111', ':': '01010',
+  };
+  const pixelText = (str, cx, y, color, s = 2) => { // centred on cx, each font pixel s×s, with a drop shadow
+    const ws = [...str].map((ch) => FONT[ch].length / 5);
+    let x = Math.round(cx - (s * (ws.reduce((a, b) => a + b + 1, 0) - 1)) / 2);
+    [...str].forEach((ch, k) => {
+      [...FONT[ch]].forEach((b, i) => {
+        if (b !== '1') return;
+        const gx = x + (i % ws[k]) * s, gy = y + Math.floor(i / ws[k]) * s;
+        px(gx + 1, gy + 1, s, s, '#1E1E24'); px(gx, gy, s, s, color);
+      });
+      x += (ws[k] + 1) * s;
+    });
+  };
+  const disc = (cx, cy, r, color) => {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r + r) px(cx + dx, cy + dy, 1, 1, color);
+  };
+  const skyClock = (body, x, y, c, t) => {
+    if (body === 'sun') { disc(x, y, 6, '#FFD27A'); disc(x - 1, y - 1, 4, '#FFE38A'); }
+    else { disc(x, y, 6, '#E8E4D0'); px(x - 2, y - 2, 2, 2, '#C8C4B0'); px(x + 2, y + 1, 2, 2, '#C8C4B0'); px(x - 1, y + 3, 1, 1, '#C8C4B0'); }
+    if (!c) return;
+    const left = c.leftMs / (c.phase.min * 60_000), color = c.phase.kind === 'focus' ? '#FFF1C1' : '#8FD18F';
+    for (let k = 0; k < 44; k++) { // ring empties clockwise from the top as the block runs down
+      const a = (k / 44) * 2 * Math.PI - Math.PI / 2;
+      px(x + Math.cos(a) * 9, y + Math.sin(a) * 9, 1, 1, k / 44 < left ? color : 'rgba(255,255,255,0.2)');
+    }
+    const secs = Math.ceil(c.leftMs / 1000), mmss = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    if (!c.paused || Math.floor(t / 600) % 2) pixelText(mmss, x, y + 12, color);
+    const done = c.block.n - (c.phase.kind === 'focus' ? 1 : 0); // sessions: done ● · now (blinking) · left ○
+    for (let k = 0; k < c.block.of; k++) {
+      const dx = x - (c.block.of * 4 - 2) / 2 + k * 4;
+      const now = k === done && c.phase.kind === 'focus';
+      px(dx, y + 25, 2, 2, k < done ? '#FFD27A' : now ? (Math.floor(t / 800) % 2 ? '#FFF1C1' : '#8A7A50') : 'rgba(255,255,255,0.3)');
+    }
+  };
+
   // --- street life (unlocks as the city grows) ------------------------------
   const car = (x, color, dir, night) => {
     px(x, GROUND + 2, 8, 3, color); px(x + 2, GROUND, 4, 2, color); px(x + 3, GROUND + 1, 2, 1, '#BFE3FF');
@@ -244,7 +279,7 @@
   };
 
   // --- state ---------------------------------------------------------------
-  let town = {}, builders = [], sunPhase = null, timer = null;
+  let town = {}, builders = [], sunPhase = null, timer = null, sunTimes = null;
   const walkers = new Map();   // id -> Walker
   const doneCounts = new Map(); // id -> finished floors, to spot a fresh !done and jump
   const jumps = new Map();      // id -> jump until (ms)
@@ -257,7 +292,7 @@
       if (doneCounts.has(id) && n > doneCounts.get(id)) jumps.set(id, now + 1200);
       doneCounts.set(id, n);
     }
-    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null;
+    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null; sunTimes = msg.sun ?? null;
   };
 
   let last = performance.now();
@@ -274,9 +309,15 @@
     ctx.clearRect(0, 0, WIDTH, 270);
     // the sky opens up as the city rises: it starts just above the rooftops and grows with the tallest tower
     const skyline = Math.max(0, ...lots.map((l) => GROUND - topOf(l)));
-    const skyTop = Math.max(0, GROUND - skyline - 30);
+    const focus = current(timer, Date.now());
+    const skyTop = Math.max(0, GROUND - skyline - (focus ? 75 : 30)); // a running timer keeps room for the sky clock
     if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(skyTop, phase, weather, t); ctx.globalAlpha = 1; }
-    const focus = current(timer, Date.now()); // the landmark in progress rises with the focus countdown
+    // sun by day, moon by night, crossing the sky on local time (real sunrise/sunset with SUN_LAT/SUN_LON)
+    const at = (h) => new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), h).getTime();
+    const { body, f } = celestial(Date.now(), sunTimes ?? { sunrise: at(6), sunset: at(20) });
+    const highY = skyTop + 12, lowY = Math.max(highY, GROUND - skyline - 32);
+    skyClock(body, 20 + f * (WIDTH - 40), lowY - Math.sin(Math.PI * f) * (lowY - highY), focus, t);
+    // the landmark in progress rises with the focus countdown
     const progress = focus?.phase.kind === 'focus' ? 1 - focus.leftMs / (focus.phase.min * 60_000) : 1;
     px(0, GROUND, WIDTH, 8, C.street);
 

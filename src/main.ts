@@ -57,12 +57,13 @@ let crowd: Crowd = {}; // in memory only: presence doesn't need to survive resta
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
 const [lat, lon] = [Number(process.env.SUN_LAT), Number(process.env.SUN_LON)];
-const sunPhase = () => {
+const sunTimes = () => {
   if (!process.env.SUN_LAT || Number.isNaN(lat) || Number.isNaN(lon)) return undefined;
   const t = SunCalc.getTimes(new Date(), lat, lon);
-  return phaseFromSun(Date.now(), { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk });
+  return { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk };
 };
-const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), timer, song, gym: { meter: gym.meter, tier: gym.tier, pending: gym.pending.length, enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+const sunPhase = () => { const t = sunTimes(); return t && phaseFromSun(Date.now(), t); };
+const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), sun: sunTimes(), timer, song, gym: { meter: gym.meter, tier: gym.tier, pending: gym.pending.length, enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
