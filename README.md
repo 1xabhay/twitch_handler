@@ -6,7 +6,7 @@ Runs on your own computer. No server, no subscription.
 
 ## Features
 
-- **Pixel town overlay.** Every viewer gets a building. `!task` adds a floor under scaffolding; `!done` lights its windows; a flag goes up when everything is finished. The town persists across streams.
+- **Pixel town overlay.** Every viewer gets a building. `!task` adds a floor under scaffolding; `!done` lights its windows; a flag goes up when everything is finished. Buildings top out at 4 floors and spread into a block next door, then into skyline rows behind; empty lots are houses and parks. Mods run `!newday` for a fresh city (finished floors archived, unfinished ones carry over).
 - **Builders.** Anyone who chatted in the last 30 minutes walks the street and hammers at their own scaffolding (`!leave` / `!join` to opt out/in).
 - **Living scene.** Sky follows the real sunrise/sunset for your city, plus stars, moon, clouds, birds, seasonal trees, street lamps, daily rain/snow and a roof cat. Follows send a delivery truck; raids arrive by bus.
 - **Viewer greetings.** First-time chatters and returning regulars get different (playful) welcomes, once per stream.
@@ -23,6 +23,7 @@ Runs on your own computer. No server, no subscription.
 | `!done 2` / `!done` | anyone | finish floor 2 / your only open floor |
 | `!tasks` | anyone | list your open floors |
 | `!remove 2` | anyone | drop an unfinished floor (finished floors stay) |
+| `!newday` | mods | fresh city: archive to `data/town-<date>.json`, keep unfinished floors |
 | `!leave` / `!join` | anyone | hide / show your builder |
 | `!timer` | anyone | current focus phase and time left |
 | `!timer start [shift\|pomodoro\|deep]`, `pause`, `resume`, `skip`, `stop` | mods | control the focus timer |
@@ -39,7 +40,7 @@ Add each as a **Browser** source. The bot must be running.
 
 | URL | Size | Shows |
 |---|---|---|
-| `http://localhost:3001/town` | 1920×1080 | the town and sky (`?sky=0` for buildings only) |
+| `http://localhost:3001/town` | 1920×1080 | the town and sky (`?sky=0` for buildings only, `?alpha=0.6` to see through more; default 0.8) |
 | `http://localhost:3001/timer` | 600×200 | focus timer, hidden when no timer runs |
 | `http://localhost:3001/music` | 600×140 | now-playing card, hidden when nothing plays |
 | `http://localhost:3001/workout` | 600×160 | Workout Meter and workout banner |

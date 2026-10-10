@@ -8,6 +8,13 @@ const MAX_TASK = 60;
 
 // Each !task adds a floor (numbered from 1 at the bottom). Open floors are under construction;
 // !done N finishes one, !remove N drops an open one, !tasks lists what's open.
+// Fresh start for a new day: finished floors go, unfinished ones carry over (renumbered from 1).
+export const newDay = (town: Town): Town =>
+  Object.fromEntries(Object.entries(town).flatMap(([id, b]) => {
+    const floors = b.floors.filter((f) => !f.done);
+    return floors.length ? [[id, { ...b, floors }]] : [];
+  }));
+
 export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string) => {
   const [, cmd, rest = ''] = text.match(/^!(\w+)\s*(.*)$/s) ?? [];
   const floors = town[userId]?.floors ?? [];

@@ -36,6 +36,7 @@ Twitch handler app. Intended to be open-sourced.
 - `docs/SETUP.md` — tested macOS streaming setup (Twitch app, OBS, free GoPro webcam, audio).
 
 ## Ledger
+- 2026-10-10 — Live feedback: town covered the camera → city layout (src/scene/city.ts): towers max 4 floors, overflow becomes a block next door, then hazy skyline rows behind; empty lots are houses/parks; canvas 0.8 opacity (`?alpha=`). `!newday` (mods) archives to data/town-<date>.json and keeps only unfinished floors. Music muted with mic → Spotify as its own macOS Audio Capture source (docs/SETUP.md).
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
 - 2026-10-10 — Category → Co-working & Studying. Workout Meter: own currency 🧱 bricks (Channel Points need Affiliate; swap in later via channel_points redemption events). Earn: 20 welcome, +1/chat/min, +5 per 10 min active, +10 per finished floor. Spicier ladder 50/100/150/250/400 → 2 min shadow boxing; fires at breaks only, max 2/h, 10 min apart. Overlay /workout (600x160).
 - 2026-10-10 — Link commands (!discord !insta !playlist !socials, LINK_* in .env); Discord go-live post via DISCORD_WEBHOOK with @here (playful copy). Launcher app `npm run launcher` → ~/Applications/Isamy Stream.app: starts bot, opens OBS, stops bot when OBS quits; log ~/Library/Logs/isamy-bot.log.

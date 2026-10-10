@@ -5,7 +5,7 @@ import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import type { EventSubChannelChatMessageEvent } from '@twurple/eventsub-base';
 import { greet, type Viewers } from './greet.ts';
-import { handleCommand, type Town } from './town.ts';
+import { handleCommand, newDay, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
@@ -140,6 +140,14 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   if (word === '!leave') await say(`@${chatter.userName} clocks out 👋 (!join to come back)`);
 
   saveGym(earnChat(gym, chatter.userId, Date.now()));
+  const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
+  if (word === '!newday' && isMod) {
+    await writeFile(`data/town-${new Date().toLocaleDateString('en-CA')}.json`, JSON.stringify(town, null, 2)); // archive, never lose a day
+    town = newDay(town);
+    await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
+    push(state());
+    await say('🌅 new day, fresh lots! finished floors are archived, unfinished ones carried over. !task to start building');
+  }
   const doneBefore = town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0;
   const cmd = handleCommand(town, chatter, e.messageText);
   if (cmd && (cmd.town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0) > doneBefore) saveGym(earnDone(gym, chatter.userId));
@@ -150,7 +158,6 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   push(state());
   if (cmd) await say(cmd.reply);
 
-  const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
   const w = handleWorkout(gym, chatter, isMod, e.messageText);
   if (w) { saveGym(w.gym); await say(w.reply); }
 

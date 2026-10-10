@@ -36,6 +36,7 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 ## Audio
 - Settings → Audio → Mic/Aux → your mic. Peak in yellow, never red.
 - Filters: Noise Suppression (RNNoise), then Compressor.
+- **Music on its own source** (so muting the mic doesn't mute music): Sources → + → macOS Audio Capture → Mode: Application → Spotify. Mute the *Mic/Aux* slider in OBS's Audio Mixer (not the Mac's mic or Spotify), music keeps going. Wear headphones so the mic doesn't pick up the music twice. Music at about -20 dB, under your voice.
 
 ## Overlay
 - Browser source `http://localhost:3001/town`, 1920×1080, top of Sources. Bot must be running.

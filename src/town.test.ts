@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handleCommand, type Town } from './town.ts';
+import { handleCommand, newDay, type Town } from './town.ts';
 
 const sam = { userId: '1', userName: 'sam' };
 const open = (task: string) => ({ task, done: false });
@@ -106,5 +106,12 @@ describe('handleCommand', () => {
       const town = samWith(open('a'));
       expect(handleCommand(town, sam, '!remove')?.town).toBe(town);
     });
+  });
+});
+
+describe('newDay', () => {
+  it('clears finished floors and keeps unfinished ones, renumbered', () => {
+    const town: Town = { '1': { name: 'sam', floors: [done('a'), open('b')] }, '2': { name: 'jo', floors: [done('c')] } };
+    expect(newDay(town)).toEqual({ '1': { name: 'sam', floors: [open('b')] } });
   });
 });

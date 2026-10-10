@@ -10,10 +10,14 @@
 <script type="module">
   import { catRoof, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
+  import { cityLayout, MAX_FLOORS } from '/lib/scene/city.ts';
 
   const ctx = document.querySelector('canvas').getContext('2d');
   const WIDTH = 480, GROUND = 262, W = 16, GAP = 10, FH = 8;
-  const SKY = new URLSearchParams(location.search).get('sky') !== '0'; // ?sky=0 → town only, no backdrop
+  const params = new URLSearchParams(location.search);
+  const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
+  ctx.canvas.style.opacity = params.get('alpha') ?? '0.8'; // ?alpha=1 → solid; lower = more see-through
+  const SLOTS = Math.floor((WIDTH - 8) / (W + GAP)), ROW_RISE = 10;
   const C = {
     wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
     hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
@@ -47,6 +51,16 @@
     const flag = FLAGS[hash(name) % FLAGS.length];
     if (Math.floor(t / 500) % 2 === 0) px(x + 12, y - 6, 3, 2, flag);
     else { px(x + 12, y - 6, 2, 2, flag); px(x + 14, y - 5, 1, 1, flag); }
+  };
+
+  const house = (x, y, night) => { // filler: little two-storey house with a pitched roof
+    px(x + 2, y - 10, 12, 10, '#8C6F5A'); px(x + 7, y - 5, 2, 5, C.dark);
+    for (let i = 0; i < 4; i++) px(x + 1 + i, y - 11 - i, 14 - 2 * i, 1, '#9C4A3A');
+    px(x + 4, y - 8, 2, 2, night ? C.lit : '#BFE3FF'); px(x + 10, y - 8, 2, 2, night ? C.lit : '#BFE3FF');
+  };
+  const park = (x, y, season) => { // filler: two trees and a bench
+    tree(x, season, y); tree(x + 10, season, y);
+    px(x + 5, y - 2, 5, 1, '#6B4A2B'); px(x + 5, y - 1, 1, 1, '#6B4A2B'); px(x + 9, y - 1, 1, 1, '#6B4A2B');
   };
 
   // --- ambient -------------------------------------------------------------
@@ -86,11 +100,11 @@
       }
     }
   };
-  const tree = (x, season) => {
-    px(x + 2, GROUND - 4, 1, 4, '#6B4A2B');
+  const tree = (x, season, y = GROUND) => {
+    px(x + 2, y - 4, 1, 4, '#6B4A2B');
     const leaves = LEAVES[season];
-    if (leaves) { px(x, GROUND - 9, 5, 5, leaves); if (season === 'spring') px(x + 1, GROUND - 8, 1, 1, '#F7A8C4'); }
-    else px(x + 1, GROUND - 6, 3, 1, '#F4F4F4'); // bare branch with snow
+    if (leaves) { px(x, y - 9, 5, 5, leaves); if (season === 'spring') px(x + 1, y - 8, 1, 1, '#F7A8C4'); }
+    else px(x + 1, y - 6, 3, 1, '#F4F4F4'); // bare branch with snow
   };
   const lamp = (x, on) => {
     px(x, GROUND - 8, 1, 8, '#2A2A3A'); px(x - 1, GROUND - 9, 3, 1, '#2A2A3A');
@@ -137,34 +151,45 @@
     const dt = Math.min(t - last, 500); last = t;
     const nowDate = new Date(), phase = sunPhase ?? phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
     const weather = weatherOn(nowDate.toLocaleDateString('en-CA'), season);
-    const list = Object.entries(town).filter(([, b]) => b.floors.length);
-    const xOf = (i) => 8 + i * (W + GAP);
-    const tallest = Math.max(0, ...list.map(([, b]) => b.floors.length));
+    const lots = cityLayout(town, SLOTS);
+    const xOf = (l) => 8 + l.col * (W + GAP) + (l.row % 2 ? 13 : 0); // back rows sit in the gaps: a skyline
+    const baseOf = (l) => GROUND - l.row * ROW_RISE;
+    const rows = Math.max(0, ...lots.map((l) => l.row));
+    const front = lots.filter((l) => l.kind === 'tower' && l.row === 0);
 
     ctx.clearRect(0, 0, WIDTH, 270);
-    if (SKY) sky(Math.max(150, GROUND - tallest * FH - 40), phase, weather, t);
+    if (SKY) sky(Math.max(150, GROUND - rows * ROW_RISE - MAX_FLOORS * FH - 40), phase, weather, t);
     px(0, GROUND, WIDTH, 8, C.street);
 
-    // ponytail: one row of ~18 buildings, ~25 floors tall; wrap into streets/scroll when the town outgrows it.
-    list.forEach(([, b], i) => {
-      const x = xOf(i);
-      b.floors.forEach((f, k) => (f.done ? finished : scaffolding)(x, GROUND - (k + 1) * FH, t));
-      if (b.floors.every((f) => f.done)) roof(x, GROUND - b.floors.length * FH, b.name, t);
-      label(b.name.slice(0, 6), x, GROUND + 7);
-      (i % 2 ? lamp : (gx) => tree(gx, season))(x + W + 2, phase !== 'day');
-    });
-    const catAt = catRoof(list.length, Date.now());
+    // ponytail: rows stack ~10px each; past ~5 rows (90 towers) the city starts climbing again — add paging then.
+    for (let row = rows; row >= 0; row--) {
+      ctx.globalAlpha = row ? 0.55 : 1; // distance haze
+      for (const l of lots.filter((l) => l.row === row)) {
+        const x = xOf(l), y = baseOf(l);
+        if (l.kind === 'house') house(x, y, phase !== 'day');
+        else if (l.kind === 'park') park(x, y, season);
+        else {
+          l.floors.forEach((f, k) => (f.done ? finished : scaffolding)(x, y - (k + 1) * FH, t));
+          if (l.complete) roof(x, y - l.floors.length * FH, l.name ?? l.id, t);
+        }
+        if (row) continue;
+        if (l.kind === 'tower' && l.name) label(l.name.slice(0, 6), x, GROUND + 7);
+        (l.col % 2 ? lamp : (gx) => tree(gx, season))(x + W + 2, phase !== 'day');
+      }
+    }
+    ctx.globalAlpha = 1;
+    const catAt = catRoof(front.length, Date.now());
     if (catAt !== null) {
-      const [, b] = list[catAt]; const complete = b.floors.every((f) => f.done);
-      cat(xOf(catAt) + 3, GROUND - b.floors.length * FH - (complete ? 2 : 0), t);
+      const l = front[catAt];
+      cat(xOf(l) + 3, GROUND - l.floors.length * FH - (l.complete ? 2 : 0), t);
     }
 
     // builders: walk to your scaffolding and hammer, otherwise wander
     const ids = new Set(builders.map((b) => b.id));
     for (const id of walkers.keys()) if (!ids.has(id)) walkers.delete(id);
     for (const { id } of builders) {
-      const i = list.findIndex(([bid]) => bid === id);
-      const home = i >= 0 && list[i][1].floors.some((f) => !f.done) ? xOf(i) + 6 : null;
+      const site = lots.find((l) => l.kind === 'tower' && l.id === id && l.floors.some((f) => !f.done));
+      const home = site ? xOf(site) + 6 : null;
       const w = walkers.get(id) ?? { x: Math.random() * WIDTH, target: 0, mode: 'idle', until: 0 };
       const next = stepWalker(w, { dt, now: t, home, rand: Math.random, width: WIDTH - 4 });
       walkers.set(id, next);
