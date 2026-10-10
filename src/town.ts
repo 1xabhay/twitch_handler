@@ -46,14 +46,17 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
       if (!task) return keep(`try: !task <what you're working on> 🔨`);
       return save([...floors, { task, done: false, kind: pickKind(rand), at: now }], `floor ${floors.length + 1} under construction: "${task}" 🏗️`);
     }
-    case 'done': {
-      const k = rest.trim() ? n : openNums.length === 1 ? openNums[0]! : null;
+    case 'done': { // !done, !done 2, !done 1 3 5
+      const words = rest.trim() ? rest.trim().split(/[\s,]+/) : [];
       if (!openNums.length) return keep(`nothing under construction. !task <thing> first 👀`);
-      if (!rest.trim() && openNums.length > 1) return keep(`which one? ${openNums.map((i) => `!done ${i}`).join(' / ')}`);
-      if (!isOpen(k)) return keep(`no open floor ${rest.trim()}. try !tasks`);
-      const next = floors.map((f, i) => (i + 1 === k ? { ...f, done: true } : f));
-      const all = next.every((f) => f.done);
-      return save(next, `floor ${k} done: "${floors[k - 1]!.task}"! lights on 💡${all ? ' building complete 🚩' : ''}`);
+      if (!words.length && openNums.length > 1) return keep(`which one? ${openNums.map((i) => `!done ${i}`).join(' / ')}`);
+      const ks = words.length ? words.map((w) => (/^\d+$/.test(w) ? Number(w) : null)) : [openNums[0]!];
+      const bad = words.filter((_, i) => !isOpen(ks[i] ?? null));
+      if (bad.length) return keep(`no open floor ${bad.join(' ')}. try !tasks`);
+      const next = floors.map((f, i) => (ks.includes(i + 1) ? { ...f, done: true } : f));
+      return save(next, ks.length === 1
+        ? `floor ${ks[0]} done: "${floors[ks[0]! - 1]!.task}"! lights on 💡`
+        : `floors ${ks.join(', ')} done! lights on 💡`);
     }
     case 'tasks':
       return openNums.length

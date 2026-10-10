@@ -70,6 +70,19 @@ describe('handleCommand', () => {
       expect(r?.reply).toContain('!task');
     });
 
+    it('!done 1 3 finishes several floors at once', () => {
+      const r = handleCommand(samWith(open('a'), open('b'), open('c')), sam, '!done 1 3');
+      expect(r?.town['1']?.floors).toEqual([done('a'), open('b'), done('c')]);
+      expect(r?.reply).toMatch(/1.*3/);
+    });
+
+    it('!done with any number that is not open changes nothing and says which', () => {
+      const town = samWith(open('a'), done('b'));
+      const r = handleCommand(town, sam, '!done 1 2');
+      expect(r?.town).toBe(town);
+      expect(r?.reply).toContain('2');
+    });
+
     it('rejects a number that is not an open floor', () => {
       const town = samWith(done('a'), open('b'));
       expect(handleCommand(town, sam, '!done 1')?.town).toBe(town);

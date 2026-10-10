@@ -6,7 +6,7 @@ Runs on your own computer. No server, no subscription.
 
 ## Features
 
-- **Pixel town overlay.** Every viewer gets a building. `!task` adds a floor under scaffolding; `!done` lights its windows; a flag goes up when everything is finished. The day starts as a blank street. Each `!task` rolls a random SimCity-style building (office, apartment, house, shop, factory, park, pool, arena, school, hospital, water tower, wind turbine, fountain) under scaffolding; `!done` finishes it. Once the street is full, new tasks add storeys to the shortest office/apartment, so the city grows up and the sky opens above it. The streamer's focus blocks build landmarks at the right end of the street: scaffolding rises with the countdown and opens at the break (pomodoro → shop/fountain/pool, shift → school/hospital/clock tower, deep → skyscraper/arena/ferris wheel); stopping or skipping mid-block lets it wither. Cars, a food cart and a hot-air balloon move in as more gets built. The sun (by day) or moon (by night) crosses the sky on local time and doubles as the focus clock: a ring that empties with the block, the countdown, and a dot per session (done / now / left) and spread into a block next door, then into skyline rows behind; empty lots are houses and parks. The city starts fresh on your first go-live of the day (or mods run `!newday`) (finished floors archived, unfinished ones carry over).
+- **Pixel city overlay.** The day starts as a blank street. Each `!task` rolls a random SimCity-style building (office, apartment, house, shop, factory, park, pool, arena, school, hospital, water tower, wind turbine, fountain) under scaffolding; `!done` finishes it and its lights come on. Once the street is full, new tasks add storeys to the shortest office/apartment, so the city grows up and the sky opens above it. The streamer's focus blocks build landmarks at the right end of the street: scaffolding rises with the countdown and opens at the break (pomodoro → shop/fountain/pool, shift → school/hospital/clock tower, deep → skyscraper/arena/ferris wheel); stopping or skipping mid-block lets it wither. Cars, a food cart and a hot-air balloon move in as more gets built. The sun (by day) or moon (by night) crosses the sky on local time and doubles as the focus clock: a ring that empties with the block, the countdown, and a dot per session. The city starts fresh on your first go-live of the day (or mods run `!newday`): finished tasks are archived, unfinished ones carry over.
 - **Builders.** Anyone who chatted in the last 30 minutes walks the street and hammers at their own scaffolding (`!leave` / `!join` to opt out/in).
 - **Living scene.** Sky follows the real sunrise/sunset for your city, plus stars, moon, clouds, birds, seasonal trees, street lamps, daily rain/snow and a roof cat. Follows send a delivery truck; raids arrive by bus.
 - **Viewer greetings.** First-time chatters and returning regulars get different (playful) welcomes, once per stream.
@@ -20,7 +20,7 @@ Runs on your own computer. No server, no subscription.
 | Command | Who | What |
 |---|---|---|
 | `!task <text>` | anyone | start a new floor on your building |
-| `!done 2` / `!done` | anyone | finish floor 2 / your only open floor |
+| `!done 2` / `!done 1 3` / `!done` | anyone | finish floor 2 / several at once / your only open floor |
 | `!tasks` | anyone | list your open floors |
 | `!remove 2` | anyone | drop an unfinished floor (finished floors stay) |
 | `!newday` | mods | fresh city: archive to `data/town-<date>.json`, keep unfinished floors |
