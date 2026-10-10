@@ -8,6 +8,8 @@ import { greet, type Viewers } from './greet.ts';
 import { handleCommand, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
+import { phaseFromSun } from './scene/ambient.ts';
+import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
 if (!clientId || !clientSecret || !TWITCH_CHANNEL || !TWITCH_BOT) throw new Error('Missing TWITCH_* vars in .env');
@@ -34,7 +36,14 @@ let viewers = await readJson<Viewers>(VIEWERS_FILE, {});
 let town = await readJson<Town>(TOWN_FILE, {});
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
-const state = () => ({ type: 'state', boot: BOOT, town, builders: activeBuilders(crowd, Date.now()) });
+// SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
+const [lat, lon] = [Number(process.env.SUN_LAT), Number(process.env.SUN_LON)];
+const sunPhase = () => {
+  if (!process.env.SUN_LAT || Number.isNaN(lat) || Number.isNaN(lon)) return undefined;
+  const t = SunCalc.getTimes(new Date(), lat, lon);
+  return phaseFromSun(Date.now(), { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk });
+};
+const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${new Date().toISOString().slice(0, 10)}`;

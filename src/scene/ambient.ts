@@ -9,6 +9,12 @@ export const hash = (s: string) => [...s].reduce((h, c) => Math.imul(h ^ c.charC
 export const phaseAt = (hour: number): Phase =>
   hour < 5 || hour >= 21 ? 'night' : hour < 7 ? 'dawn' : hour < 18 ? 'day' : 'dusk';
 
+// Real-sun version: golden "dawn"/"dusk" glow spans 30 min either side of sunrise/sunset.
+export type SunTimes = { dawn: number; sunrise: number; sunset: number; dusk: number };
+const GLOW = 30 * 60_000;
+export const phaseFromSun = (t: number, s: SunTimes): Phase =>
+  t < s.dawn || t >= s.dusk ? 'night' : t < s.sunrise + GLOW ? 'dawn' : t < s.sunset - GLOW ? 'day' : 'dusk';
+
 // ponytail: northern hemisphere only; add a hemisphere setting if someone streams from the south.
 export const seasonOf = (month: number): Season =>
   (['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter'] as const)[month]!;

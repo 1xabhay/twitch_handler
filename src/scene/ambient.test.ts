@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catRoof, drift, phaseAt, seasonOf, weatherOn } from './ambient.ts';
+import { catRoof, drift, phaseAt, phaseFromSun, seasonOf, weatherOn } from './ambient.ts';
 
 describe('phaseAt (local hour)', () => {
   it.each([
@@ -63,4 +63,13 @@ describe('catRoof', () => {
     expect(spots.size).toBeGreaterThan(1);
     for (const s of spots) expect(s).toBeGreaterThanOrEqual(0), expect(s).toBeLessThan(5);
   });
+});
+
+describe('phaseFromSun (real sunrise/sunset)', () => {
+  const at = (hhmm: string) => new Date(`2026-12-15T${hhmm}:00-05:00`).getTime();
+  const sun = { dawn: at('06:46'), sunrise: at('07:16'), sunset: at('16:37'), dusk: at('17:08') };
+  it.each([
+    ['05:00', 'night'], ['06:50', 'dawn'], ['07:30', 'dawn'], ['12:00', 'day'],
+    ['16:20', 'dusk'], ['17:00', 'dusk'], ['17:30', 'night'], ['23:00', 'night'],
+  ])('%s in Philly mid-December is %s', (t, phase) => expect(phaseFromSun(at(t), sun)).toBe(phase));
 });

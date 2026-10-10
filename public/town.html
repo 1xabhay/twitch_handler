@@ -116,7 +116,7 @@
   };
 
   // --- state ---------------------------------------------------------------
-  let town = {}, builders = [];
+  let town = {}, builders = [], sunPhase = null;
   const walkers = new Map();   // id -> Walker
   const doneCounts = new Map(); // id -> finished floors, to spot a fresh !done and jump
   const jumps = new Map();      // id -> jump until (ms)
@@ -129,13 +129,13 @@
       if (doneCounts.has(id) && n > doneCounts.get(id)) jumps.set(id, now + 1200);
       doneCounts.set(id, n);
     }
-    town = msg.town; builders = msg.builders;
+    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null;
   };
 
   let last = performance.now();
   const frame = (t) => {
     const dt = Math.min(t - last, 500); last = t;
-    const nowDate = new Date(), phase = phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
+    const nowDate = new Date(), phase = sunPhase ?? phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
     const weather = weatherOn(nowDate.toLocaleDateString('en-CA'), season);
     const list = Object.entries(town).filter(([, b]) => b.floors.length);
     const xOf = (i) => 8 + i * (W + GAP);
