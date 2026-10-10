@@ -22,7 +22,7 @@ Twitch handler app. Intended to be open-sourced.
 ## Running
 - `.env`: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL (heyisamy), TWITCH_BOT (halfopeneyes).
 - Login: `twitch configure` once, then `npm run login -- bot` (as the bot account) and `npm run login -- channel` (as the broadcaster). Device-code flow: open the printed URL in a window logged in as that account. Tokens → `tokens/<userId>.json` (gitignored, Twurple refreshes them). Bot must be a mod in the channel (`/mod <bot>`).
-- `npm run launcher` builds the "Isamy Stream" app (bot + OBS together). `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored). OBS browser sources: http://localhost:3001/town (1920x1080), http://localhost:3001/timer (600x200), http://localhost:3001/music (600x140).
+- `npm run launcher` builds the "Isamy Stream" app (bot + OBS together). `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored). OBS browser sources: http://localhost:3001/town (1920x1080), http://localhost:3001/timer (600x200), http://localhost:3001/music (600x140), http://localhost:3001/workout (600x160).
 
 ## Style
 - Bot voice: playful & witty. Speaks only when needed (greetings, timer, command replies) — no timed spam.
@@ -37,6 +37,7 @@ Twitch handler app. Intended to be open-sourced.
 
 ## Ledger
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
+- 2026-10-10 — Category → Co-working & Studying. Workout Meter: own currency 🧱 bricks (Channel Points need Affiliate; swap in later via channel_points redemption events). Earn: 20 welcome, +1/chat/min, +5 per 10 min active, +10 per finished floor. Spicier ladder 50/100/150/250/400 → 2 min shadow boxing; fires at breaks only, max 2/h, 10 min apart. Overlay /workout (600x160).
 - 2026-10-10 — Link commands (!discord !insta !playlist !socials, LINK_* in .env); Discord go-live post via DISCORD_WEBHOOK with @here (playful copy). Launcher app `npm run launcher` → ~/Applications/Isamy Stream.app: starts bot, opens OBS, stops bot when OBS quits; log ~/Library/Logs/isamy-bot.log.
 - 2026-10-10 — Spotify song requests live: `!sr` (followers, 10-min cooldown, mods exempt), `!song`, `!skip` (mods); accepted songs mirrored to "Study Queue". Streamer chose MUSIC_ALLOW_ALL=true knowingly (DMCA risk explained, docs/MUSIC.md); default for others stays allowlist (StreamBeats, NCS by label/artist). Now-playing overlay /music (600x140). Login: `npm run login:spotify` (PKCE, 127.0.0.1:3002).
 - 2026-10-10 — Focus timer (docs/FOCUS.md research): presets shift (50/10 on the hour, lunch at 4h, 8h), pomodoro, deep (90/20). `!timer` anyone; start/pause/resume/skip/stop mods only. Phase changes announced with evidence-ranked break prompts. Overlay at /timer (600x200). Sky follows real sun via suncalc + SUN_LAT/SUN_LON.

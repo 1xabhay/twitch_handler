@@ -12,6 +12,7 @@ Runs on your own computer. No server, no subscription.
 - **Viewer greetings.** First-time chatters and returning regulars get different (playful) welcomes, once per stream.
 - **Focus timer.** `shift` (8 h, 50/10 on the hour, lunch at 4 h), `pomodoro` (25/5) and `deep` (90/20) presets, with break prompts ranked by the research in [docs/FOCUS.md](docs/FOCUS.md).
 - **Song requests (Spotify).** `!sr`, `!song`, `!skip`, a shared playlist, and a now-playing card. Limited to stream-safe labels by default. Read [docs/MUSIC.md](docs/MUSIC.md) before changing that.
+- **Workout Meter.** Viewers earn 🧱 bricks (chatting, hanging out, finishing floors) and pour them into a shared meter. Each filled tier queues a harder exercise, up to 🥊 2 min shadow boxing, done at the next break (max 2/hour, 10 min apart).
 - **Link commands and Discord.** `!socials`, `!discord`, `!insta`, `!playlist`, plus an optional "we're live" post to a Discord channel.
 
 ## Chat commands
@@ -28,6 +29,8 @@ Runs on your own computer. No server, no subscription.
 | `!sr <song>` | followers (1 per 10 min), mods | request a song |
 | `!song` | anyone | what's playing |
 | `!skip` | mods | skip the current song |
+| `!workout [n]` / `!bricks` | anyone | pour 🧱 bricks into the Workout Meter / check your balance |
+| `!workout off` / `on` | mods | pause / resume the Workout Meter |
 | `!socials`, `!discord`, `!insta`, `!playlist` | anyone | links |
 
 ## OBS overlays
@@ -39,6 +42,7 @@ Add each as a **Browser** source. The bot must be running.
 | `http://localhost:3001/town` | 1920×1080 | the town and sky (`?sky=0` for buildings only) |
 | `http://localhost:3001/timer` | 600×200 | focus timer, hidden when no timer runs |
 | `http://localhost:3001/music` | 600×140 | now-playing card, hidden when nothing plays |
+| `http://localhost:3001/workout` | 600×160 | Workout Meter and workout banner |
 
 Overlays reload themselves when the bot restarts. The server only listens on `127.0.0.1`.
 

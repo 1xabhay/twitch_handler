@@ -13,6 +13,7 @@ import { announce, current, handleTimer, type Timer } from './focus.ts';
 import { canRequest, nowPlaying, parseMusic } from './music.ts';
 import { spotifyClient } from './spotify.ts';
 import { handleLink } from './links.ts';
+import { earnChat, earnDone, earnPresence, handleWorkout, nextWorkout, type Gym } from './workout.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -21,6 +22,7 @@ if (!clientId || !clientSecret || !TWITCH_CHANNEL || !TWITCH_BOT) throw new Erro
 const VIEWERS_FILE = 'data/viewers.json';
 const TOWN_FILE = 'data/town.json';
 const TIMER_FILE = 'data/timer.json';
+const GYM_FILE = 'data/gym.json';
 const OVERLAY_PORT = 3001;
 const readJson = async <T>(path: string, fallback: T): Promise<T> =>
   readFile(path, 'utf8').then(JSON.parse, () => fallback);
@@ -48,6 +50,8 @@ const MUSIC_ALLOW_ALL = process.env.MUSIC_ALLOW_ALL === 'true'; // at your own D
 const playlist = spotify && process.env.SPOTIFY_PLAYLIST ? await spotify.playlistId(process.env.SPOTIFY_PLAYLIST) : undefined;
 let song: Awaited<ReturnType<NonNullable<typeof spotify>['current']>> = null;
 const requests: Record<string, number> = {}; // userId → last request time
+let gym = await readJson<Gym>(GYM_FILE, { wallet: {}, lastChat: {}, meter: 0, tier: 0, contributors: {}, pending: [], doneAt: [], enabled: true });
+const saveGym = (next: Gym) => { if (next === gym) return; gym = next; push(state()); void writeFile(GYM_FILE, JSON.stringify(gym)); };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
@@ -57,7 +61,7 @@ const sunPhase = () => {
   const t = SunCalc.getTimes(new Date(), lat, lon);
   return phaseFromSun(Date.now(), { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk });
 };
-const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), timer, song, town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), timer, song, gym: { meter: gym.meter, tier: gym.tier, pending: gym.pending.length, enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
@@ -68,6 +72,16 @@ const saveTimer = (next: Timer) => {
   push(state());
   return writeFile(TIMER_FILE, JSON.stringify(timer));
 };
+setInterval(() => { // workouts fire at breaks (or anytime without a focus timer), capped per hour
+  const c = current(timer, Date.now());
+  const r = nextWorkout(gym, Date.now(), !timer || c?.phase.kind === 'break');
+  if (!r.workout) return;
+  saveGym(r.gym);
+  push({ type: 'workout', ...r.workout });
+  const by = r.workout.by.length ? `, courtesy of ${r.workout.by.map((n) => `@${n}`).join(' ')}` : '';
+  say(`💪 workout time! isamy does ${r.workout.name}${by}`).catch((err) => console.error('workout announce failed', err));
+}, 1000);
+setInterval(() => saveGym(earnPresence(gym, activeBuilders(crowd, Date.now()).map((b) => b.id))), 10 * 60_000);
 setInterval(() => { // announce each phase change; the overlay counts down on its own
   if (!timer) return;
   const c = current(timer, Date.now());
@@ -125,7 +139,10 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   if (word === '!join') await say(`@${chatter.userName} grabs a hard hat 👷`);
   if (word === '!leave') await say(`@${chatter.userName} clocks out 👋 (!join to come back)`);
 
+  saveGym(earnChat(gym, chatter.userId, Date.now()));
+  const doneBefore = town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0;
   const cmd = handleCommand(town, chatter, e.messageText);
+  if (cmd && (cmd.town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0) > doneBefore) saveGym(earnDone(gym, chatter.userId));
   if (cmd && cmd.town !== town) {
     town = cmd.town;
     await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
@@ -134,6 +151,9 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   if (cmd) await say(cmd.reply);
 
   const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
+  const w = handleWorkout(gym, chatter, isMod, e.messageText);
+  if (w) { saveGym(w.gym); await say(w.reply); }
+
   const link = handleLink(e.messageText, { discord: process.env.LINK_DISCORD, insta: process.env.LINK_INSTA, playlist: process.env.LINK_PLAYLIST });
   if (link) await say(link);
 
