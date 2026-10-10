@@ -32,9 +32,11 @@ Twitch handler app. Intended to be open-sourced.
 ## Research
 - `docs/RESEARCH.md` — graded starter toolkit.
 - `docs/INTERACTIVE.md` — chat-driven on-screen environment ideas.
+- `docs/SETUP.md` — tested macOS streaming setup (Twitch app, OBS, free GoPro webcam, audio).
 
 ## Ledger
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
+- 2026-10-09 — Streaming setup done: OBS 32 + stream key, GoPro HERO11 via free official GoPro Webcam app (video only), Mac mic + RNNoise/Compressor, town overlay live in OBS. Captured in docs/SETUP.md.
 - 2026-10-09 — Pixel town v1: `!task`/`!done` (one building per viewer, floors = tasks done, lit window = active task). Overlay at localhost:3001/town via SSE, bound to 127.0.0.1. Chosen over constellation/mural/voyage: builds on task list, fits pixel style.
 - 2026-10-09 — First live run: greeting works in real chat (#halfopeneyes). Bot posts as the channel owner (no bot account yet). Offline "stream" = calendar day.
 - 2026-10-09 — Stack chosen: TS + Twurple; build our own (borrow Dirework command names). Style picked. First feature: `greet` (viewer memory), TDD.
