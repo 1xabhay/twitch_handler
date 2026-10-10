@@ -98,7 +98,10 @@ listener.onStreamOnline(channel, async (e) => {
   await fetch(process.env.DISCORD_WEBHOOK, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ content: `🔴 live now: **${title}**\nhttps://twitch.tv/${channel.name}` }),
+    body: JSON.stringify({
+      content: `@here the town lights are on 🏙️💡\n**isamy is live:** ${title}\ngrab a hard hat → https://twitch.tv/${channel.name}`,
+      allowed_mentions: { parse: ['everyone'] }, // lets @here ping
+    }),
   }).catch((err) => console.error('discord post failed', err));
 });
 listener.onChannelFollow(channel, bot, (e) => push({ type: 'follow', name: e.userDisplayName }));
