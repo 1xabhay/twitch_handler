@@ -4,6 +4,8 @@ A small, self-hosted Twitch bot plus OBS overlays for **co-working, Just Chattin
 
 Runs on your own computer. No server, no subscription.
 
+Inspired by [PomodoroWorld](https://pomodoroworld.com) — if you want a polished 3D world with no setup, go there. Pixel Town is a small open-source take: a neighbourhood chat builds together.
+
 ## Features
 
 - **Pixel city overlay.** The day starts as a blank street. Each `!task` rolls a random SimCity-style building (office, apartment, house, shop, factory, park, pool, arena, school, hospital, water tower, wind turbine, fountain) under scaffolding; `!done` finishes it and its lights come on. Once the street is full, new tasks add storeys to the shortest office/apartment, so the city grows up and the sky opens above it. The streamer's focus blocks build landmarks at the right end of the street: scaffolding rises with the countdown and opens at the break (pomodoro → shop/fountain/pool, shift → school/hospital/clock tower, deep → skyscraper/arena/ferris wheel); stopping or skipping mid-block lets it wither. Cars, a food cart and a hot-air balloon move in as more gets built. The sun (by day) or moon (by night) crosses the sky on local time and doubles as the focus clock: a ring that empties with the block, the countdown, and a dot per session. The city starts fresh on your first go-live of the day (or mods run `!newday`): finished tasks are archived, unfinished ones carry over.
@@ -19,9 +21,10 @@ Runs on your own computer. No server, no subscription.
 
 | Command | Who | What |
 |---|---|---|
-| `!task <text>` | anyone | start a new floor on your building |
+| `!task <text>` | anyone | put up a random building under scaffolding (max 10 open each) |
 | `!done 2` / `!done 1 3` / `!done` | anyone | finish floor 2 / several at once / your only open floor |
-| `!tasks` | anyone | list your open floors |
+| `!tasks` | anyone | list your open tasks |
+| `!help` | anyone | how the city works |
 | `!remove 2` | anyone | drop an unfinished floor (finished floors stay) |
 | `!newday` | mods | fresh city: archive to `data/town-<date>.json`, keep unfinished floors |
 | `!leave` / `!join` | anyone | hide / show your builder |
