@@ -21,7 +21,7 @@ Twitch handler app. Intended to be open-sourced.
 
 ## Running
 - `.env`: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL, TWITCH_BOT (bot = channel for now).
-- Login once: `twitch configure` then `twitch token -u -s "user:read:chat user:write:chat"`; tokens saved to `user.token.json` (gitignored, Twurple refreshes + rewrites it).
+- Login once: `twitch configure` then `twitch token -u -s "user:read:chat user:write:chat channel:manage:broadcast"`; tokens saved to `user.token.json` (gitignored, Twurple refreshes + rewrites it).
 - `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored). OBS browser source: http://localhost:3001/town (1920x1080).
 
 ## Style

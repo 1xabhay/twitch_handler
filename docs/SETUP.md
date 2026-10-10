@@ -11,7 +11,7 @@ What actually worked for a first-time setup.
 ```sh
 brew install twitchdev/twitch/twitch-cli
 twitch configure            # paste Client ID + Secret
-twitch token -u -s "user:read:chat user:write:chat"   # save tokens into user.token.json
+twitch token -u -s "user:read:chat user:write:chat channel:manage:broadcast"   # save tokens into user.token.json
 npm install && npm start
 ```
 
