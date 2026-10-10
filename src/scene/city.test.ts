@@ -1,44 +1,50 @@
 import { describe, expect, it } from 'vitest';
-import { cityLayout, kindOf, MAX_FLOORS, type Lot } from './city.ts';
-import type { Town } from '../town.ts';
+import { cityLayout, pickKind, POOL, SIZE, STACKABLE, type Kind } from './city.ts';
+import type { Floor, Town } from '../town.ts';
 
-// Task texts that roll a given lot kind for viewer 'a' (the roll is stable per viewer + text).
-const tasksOf = (kind: string, n = 1) => Array.from({ length: 5000 }, (_, i) => `t${i}`).filter((t) => kindOf('a', t) === kind).slice(0, n);
-const towerTasks = (n: number, done = true) => tasksOf('tower', n).map((task) => ({ task, done }));
-const built = (lots: Lot[]) => lots.filter((l) => l.kind !== 'house' && l.kind !== 'park');
+const fl = (kind: Kind, at: number, done = false): Floor => ({ task: `t${at}`, done, kind, at });
 
-describe('kindOf', () => {
-  it('is stable and mostly towers, with every SimCity extra possible', () => {
-    expect(kindOf('a', 'read')).toBe(kindOf('a', 'read'));
-    const kinds = new Set(Array.from({ length: 2000 }, (_, i) => kindOf('a', `t${i}`)));
-    expect([...kinds].sort()).toEqual(['factory', 'fountain', 'hospital', 'school', 'shop', 'stadium', 'tower', 'turbine', 'watertower']);
+describe('pickKind', () => {
+  it('maps a random number onto the whole pool', () => {
+    expect(pickKind(0)).toBe(POOL[0]);
+    expect(pickKind(0.9999)).toBe(POOL.at(-1));
+    expect(new Set(Array.from({ length: 1000 }, (_, i) => pickKind(i / 1000)))).toEqual(new Set(POOL));
   });
 });
 
 describe('cityLayout', () => {
-  it('an empty town is still a city: houses and parks across the street', () => {
-    const lots = cityLayout({}, 100);
-    expect(lots.length).toBeGreaterThan(2);
-    expect(lots.every((l) => (l.kind === 'house' || l.kind === 'park') && l.x + l.w <= 100)).toBe(true);
-    expect(cityLayout({}, 100)).toEqual(lots); // deterministic
+  it('starts from a blank canvas', () => {
+    expect(cityLayout({}, 200)).toEqual([]);
   });
 
-  it('tower tasks stack into towers capped at MAX_FLOORS, spilling into a block next door', () => {
-    const t = built(cityLayout({ a: { name: 'amy', floors: towerTasks(MAX_FLOORS + 1) } }, 500));
-    expect(t.map((l) => l.kind === 'tower' && l.floors.length)).toEqual([MAX_FLOORS, 1]);
-    expect(t.map((l) => l.kind === 'tower' && l.complete)).toEqual([false, true]); // flag on top only
+  it('fills the street left to right in the order tasks were opened, whoever opened them', () => {
+    const town: Town = { a: { name: 'a', floors: [fl('park', 3), fl('office', 1, true)] }, b: { name: 'b', floors: [fl('pool', 2)] } };
+    const lots = cityLayout(town, 500);
+    expect(lots.map((l) => [l.kind, l.done, l.id])).toEqual([['office', true, 'a'], ['pool', false, 'b'], ['park', false, 'a']]);
+    expect(lots.map((l) => l.x)).toEqual([0, SIZE.office[0] + 6, SIZE.office[0] + SIZE.pool[0] + 12]);
   });
 
-  it('other tasks become their own lot, open = under construction until done', () => {
-    const [shop] = tasksOf('shop'), [plaza] = tasksOf('fountain');
-    const t = built(cityLayout({ a: { name: 'amy', floors: [{ task: shop!, done: true }, { task: plaza!, done: false }] } }, 500));
-    expect(t.map((l) => [l.kind, 'done' in l && l.done])).toEqual([['shop', true], ['fountain', false]]);
+  it('once the street is full, new tasks build storeys on the shortest office/apartment', () => {
+    const width = SIZE.office[0] + 6 + SIZE.apartment[0]; // room for exactly two lots
+    const town: Town = { a: { name: 'a', floors: [fl('office', 1), fl('apartment', 2), fl('arena', 3, true), fl('park', 4), fl('pool', 5)] } };
+    const [office, apartment, ...rest] = cityLayout(town, width);
+    expect(rest).toEqual([]);
+    expect(office!.storeys).toEqual([{ id: 'a', done: true }, { id: 'a', done: false }]);
+    expect(apartment!.storeys).toEqual([{ id: 'a', done: false }]);
   });
 
-  it('wraps into back rows instead of spilling off screen', () => {
-    const town: Town = Object.fromEntries(['a', 'b', 'c', 'd'].map((id) => [id, { name: id, floors: [{ task: 'x', done: true }] }]));
-    const lots = cityLayout(town, 60);
-    expect(built(lots).every((l) => l.x + l.w <= 60)).toBe(true);
-    expect(Math.max(...lots.map((l) => l.row))).toBeGreaterThan(0);
+  it('stacks on whatever is there when no lot is stackable', () => {
+    const lots = cityLayout({ a: { name: 'a', floors: [fl('park', 1), fl('pool', 2)] } }, SIZE.park[0]);
+    expect(lots).toHaveLength(1);
+    expect(lots[0]!.storeys).toHaveLength(1);
+  });
+
+  it('lays out older floors saved without kind/at', () => {
+    const lots = cityLayout({ a: { name: 'a', floors: [{ task: 'x', done: true }] } }, 500);
+    expect(POOL).toContain(lots[0]!.kind);
+  });
+
+  it('only offices and apartments are stackable', () => {
+    expect([...STACKABLE].sort()).toEqual(['apartment', 'office']);
   });
 });

@@ -2,57 +2,41 @@
 import type { Floor, Town } from '../town.ts';
 import { hash } from './ambient.ts';
 
-export const MAX_FLOORS = 10; // towers rise to ~30% of the screen; more floors become a block next door
-export const FH = 8, GAP = 10;
+export const FH = 8, GAP = 6;
 
-// SimCity-style lots, [width, height] in canvas pixels. Towers grow a floor per task, the rest are one task each.
+// SimCity-style buildings a new task can roll, [width, height] in canvas pixels.
+// Offices and apartments are listed twice: they're the ones the city can later build upward on.
 export const SIZE = {
-  tower: [16, 0], shop: [16, 12], factory: [24, 22], watertower: [12, 22], turbine: [12, 28],
-  fountain: [16, 8], school: [24, 18], hospital: [20, 20], stadium: [32, 12], house: [16, 15], park: [16, 9],
+  office: [16, 16], apartment: [16, 16], house: [16, 15], shop: [16, 12], factory: [24, 22], park: [16, 9],
+  pool: [24, 6], arena: [32, 15], school: [24, 18], hospital: [20, 20], watertower: [12, 22], turbine: [12, 28], fountain: [16, 8],
 } as const;
-const ROLL = ['tower', 'tower', 'tower', 'tower', 'shop', 'factory', 'watertower', 'turbine', 'fountain', 'school', 'hospital', 'stadium'] as const;
-type Special = Exclude<(typeof ROLL)[number], 'tower'>;
+export type Kind = keyof typeof SIZE;
+export const POOL: readonly Kind[] = ['office', 'office', 'apartment', 'apartment', 'house', 'shop', 'factory', 'park', 'pool', 'arena', 'school', 'hospital', 'watertower', 'turbine', 'fountain'];
+export const STACKABLE: ReadonlySet<Kind> = new Set(['office', 'apartment']);
+export const pickKind = (r: number) => POOL[Math.min(POOL.length - 1, Math.floor(r * POOL.length))]!;
 
-// Each new task rolls what it builds. Same viewer + same text → same pick, so lots never reshuffle on reload.
-export const kindOf = (id: string, task: string) => ROLL[hash(`${id}:${task}`) % ROLL.length]!;
+export type Storey = { id: string; done: boolean };
+export type Lot = { kind: Kind; id: string; done: boolean; x: number; w: number; h: number; storeys: Storey[] };
 
-export type Lot = { row: number; x: number; w: number; h: number } & (
-  | { kind: 'tower'; id: string; name: string | null; floors: Floor[]; complete: boolean }
-  | { kind: Special; id: string; done: boolean }
-  | { kind: 'house' | 'park' }
-);
-type Unplaced<L = Lot> = L extends Lot ? Omit<L, 'row' | 'x'> : never; // distributes over the union
-
-// A viewer's tower(s) and extras sit together as a neighbourhood. Lots fill the front row left to right,
-// then rows behind it. Front lots nobody has built on yet are houses and parks, so the city never looks empty.
+// Blank canvas → tasks fill the street left to right in the order they were opened (scaffolding until done).
+// Once nothing more fits, each new task adds a storey to the shortest office/apartment, so the city grows up.
 export const cityLayout = (town: Town, width: number): Lot[] => {
-  const items = Object.entries(town).flatMap(([id, b]): Unplaced[] => {
-    const floors = b.floors.filter((f) => kindOf(id, f.task) === 'tower');
-    const allDone = b.floors.every((f) => f.done);
-    const chunks = Array.from({ length: Math.ceil(floors.length / MAX_FLOORS) }, (_, i) =>
-      floors.slice(i * MAX_FLOORS, (i + 1) * MAX_FLOORS));
-    const towers = chunks.map((fs, i) => ({
-      kind: 'tower' as const, id, name: i ? null : b.name, floors: fs,
-      complete: allDone && i === chunks.length - 1, w: SIZE.tower[0], h: fs.length * FH,
-    }));
-    const extras = b.floors.flatMap((f) => {
-      const kind = kindOf(id, f.task);
-      return kind === 'tower' ? [] : [{ kind, id, done: f.done, w: SIZE[kind][0], h: SIZE[kind][1] }];
-    });
-    return [...towers, ...extras];
-  });
+  const items = Object.entries(town)
+    .flatMap(([id, b]) => b.floors.map((f: Floor, i) => ({
+      id, done: f.done,
+      kind: f.kind ?? POOL[hash(`${id}:${f.task}`) % POOL.length]!, // floors saved before kinds existed
+      at: f.at ?? i,
+    })))
+    .sort((a, b) => a.at - b.at);
 
   const lots: Lot[] = [];
-  let row = 0, x = 0;
-  const place = (item: Unplaced) => {
-    if (x && x + item.w > width) { row++; x = 0; }
-    lots.push({ ...item, row, x } as Lot);
-    x += item.w + GAP;
-  };
-  items.forEach(place);
-  while (row === 0 && x + SIZE.house[0] <= width) {
-    const kind = hash(`lot${lots.length}`) % 3 ? 'house' : 'park';
-    place({ kind, w: SIZE[kind][0], h: SIZE[kind][1] });
+  let x = 0;
+  for (const { id, done, kind } of items) {
+    const [w, h] = SIZE[kind];
+    if (x + w <= width) { lots.push({ kind, id, done, x, w, h, storeys: [] }); x += w + GAP; continue; }
+    const towers = lots.filter((l) => STACKABLE.has(l.kind));
+    const pool = towers.length ? towers : lots;
+    if (pool.length) pool.reduce((a, b) => (b.storeys.length < a.storeys.length ? b : a)).storeys.push({ id, done });
   }
   return lots;
 };

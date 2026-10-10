@@ -1,6 +1,7 @@
 import type { Chatter } from './greet.ts';
+import { pickKind, type Kind } from './scene/city.ts';
 
-export type Floor = { task: string; done: boolean };
+export type Floor = { task: string; done: boolean; kind?: Kind; at?: number }; // kind/at: what it builds, when opened
 export type Building = { name: string; floors: Floor[] };
 export type Town = Readonly<Record<string, Building>>;
 
@@ -15,7 +16,8 @@ export const newDay = (town: Town): Town =>
     return floors.length ? [[id, { ...b, floors }]] : [];
   }));
 
-export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string) => {
+// rand/now come from the shell so this stays pure: rand rolls the building, now orders it on the street.
+export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string, rand = Math.random(), now = Date.now()) => {
   const [, cmd, rest = ''] = text.match(/^!(\w+)\s*(.*)$/s) ?? [];
   const floors = town[userId]?.floors ?? [];
   const at = (s: string) => `@${userName} ${s}`;
@@ -31,7 +33,7 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
     case 'task': {
       const task = rest.trim().slice(0, MAX_TASK);
       if (!task) return keep(`try: !task <what you're working on> 🔨`);
-      return save([...floors, { task, done: false }], `floor ${floors.length + 1} under construction: "${task}" 🏗️`);
+      return save([...floors, { task, done: false, kind: pickKind(rand), at: now }], `floor ${floors.length + 1} under construction: "${task}" 🏗️`);
     }
     case 'done': {
       const k = rest.trim() ? n : openNums.length === 1 ? openNums[0]! : null;

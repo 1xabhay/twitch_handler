@@ -10,7 +10,7 @@
 <script type="module">
   import { catRoof, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
-  import { cityLayout, FH, GAP } from '/lib/scene/city.ts';
+  import { cityLayout, FH, STACKABLE } from '/lib/scene/city.ts';
 
   const ctx = document.querySelector('canvas').getContext('2d');
   const WIDTH = 480, GROUND = 262, W = 16;
@@ -18,7 +18,6 @@
   const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
   ctx.canvas.style.opacity = params.get('alpha') ?? '1'; // ?alpha=0.7 → whole overlay see-through
   const SKY_ALPHA = 0.5; // the sky is a faint tint over the camera; the city itself is solid
-  const ROW_RISE = 10, ROW_SHIFT = 13; // back rows sit higher and shifted into the gaps: a skyline
   const C = {
     wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
     hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
@@ -40,17 +39,21 @@
     for (let j = 0; j < 6; j++) px(x + 1 + j, y + 6 - j, 1, 1, C.scaffold);
     if (Math.floor(t / 750) % 2 === 0) px(x + 15, y - 1, 1, 1, C.beacon);
   };
-  const finished = (x, y) => { // done: solid wall, lit windows
-    px(x, y, W, FH, C.wall); px(x, y + 7, W, 1, C.slab);
-    for (const wx of [3, 7, 11]) { px(x + wx, y + 2, 2, 3, C.lit); px(x + wx, y + 2, 1, 1, C.shine); }
+  // one finished storey (8px) of a stackable building, top-left at x, y
+  const STOREY = {
+    office: (x, y, night) => { // glass curtain wall
+      px(x, y, W, FH, '#5E7A96'); px(x, y + 7, W, 1, '#46607A');
+      px(x + 1, y + 2, 14, 3, night ? C.lit : '#9FC4E0'); px(x + 5, y + 2, 1, 3, '#46607A'); px(x + 10, y + 2, 1, 3, '#46607A');
+    },
+    apartment: (x, y, night) => { // warm brick, windows with little balconies
+      px(x, y, W, FH, '#B9876A'); px(x, y + 7, W, 1, '#8C5E48');
+      for (const wx of [3, 10]) { px(x + wx, y + 2, 3, 3, night ? C.lit : '#9FC4E0'); px(x + wx - 1, y + 5, 5, 1, '#5A4A42'); }
+    },
   };
-  const roof = (x, y, name, t) => { // complete: roof cap, garden, owner's flag
+  const roofCap = (x, y, kind, t) => { // top of a finished tower: office antenna with a slow beacon, apartment roof garden
     px(x, y - 2, W, 2, C.slab);
-    for (const gx of [2, 3, 5]) px(x + gx, y - 3, 1, 1, C.garden);
-    px(x + 11, y - 6, 1, 4, C.slab);
-    const flag = FLAGS[hash(name) % FLAGS.length];
-    if (Math.floor(t / 500) % 2 === 0) px(x + 12, y - 6, 3, 2, flag);
-    else { px(x + 12, y - 6, 2, 2, flag); px(x + 14, y - 5, 1, 1, flag); }
+    if (kind === 'office') { px(x + 11, y - 7, 1, 5, C.slab); if (Math.floor(t / 1500) % 2) px(x + 11, y - 8, 1, 1, '#E4572E'); }
+    else for (const gx of [2, 3, 5, 9, 10]) px(x + gx, y - 3, 1, 1, C.garden);
   };
 
   const scaffoldBox = (x, y, w, h, t) => { // any lot under construction: shell, poles, planks, brace, hazard band
@@ -65,6 +68,16 @@
   // finished SimCity-style lots, drawn from the ground line y up; shapes carry meaning, not just colour
   const glass = (night) => (night ? C.lit : '#9FC4E0');
   const LOTS = {
+    office: (x, y, t, night) => { STOREY.office(x, y - 16, night); STOREY.office(x, y - 8, night); px(x + 6, y - 5, 4, 5, '#9FC4E0'); },
+    apartment: (x, y, t, night) => { STOREY.apartment(x, y - 16, night); STOREY.apartment(x, y - 8, night); px(x + 7, y - 5, 3, 5, C.dark); },
+    house: (x, y, t, night) => house(x, y, night),
+    park: (x, y, t, night, season) => park(x, y, season),
+    pool: (x, y, t) => { // deck, lanes, a sun umbrella
+      px(x, y - 2, 24, 2, '#D8D0C0'); px(x + 2, y - 4, 20, 2, '#4FB3E8');
+      for (let i = 4; i < 22; i += 4) px(x + i, y - 4, 1, 1, '#F4F4F4');
+      px(x + 2 + ((Math.floor(t / 700) * 3) % 18), y - 3, 2, 1, '#BFE9FF'); // shimmer
+      px(x + 22, y - 6, 1, 4, '#C0C0C0'); px(x, y - 7, 5, 1, '#E4572E'); px(x + 2, y - 6, 1, 4, '#6B4A2B');
+    },
     shop: (x, y, t, night) => { // striped awning, shop window, door
       px(x, y - 10, 16, 10, '#C9A27A');
       for (let i = 0; i < 16; i += 2) px(x + i, y - 12, 2, 2, i % 4 ? '#F4F4F4' : '#E4572E');
@@ -107,7 +120,7 @@
       for (const wx of [2, 6, 12, 16]) px(x + wx, y - 8, 2, 2, glass(night));
       px(x + 8, y - 4, 4, 4, '#9FC4E0');
     },
-    stadium: (x, y, t, night) => { // seating bowl and floodlights
+    arena: (x, y, t, night) => { // seating bowl and floodlights
       px(x, y - 8, 32, 8, '#8A8A9A'); px(x + 2, y - 10, 28, 2, '#A8A8B8');
       for (let i = 4; i < 28; i += 3) px(x + i, y - 6, 2, 1, FLAGS[i % FLAGS.length]);
       for (const lx of [0, 31]) { px(x + lx, y - 14, 1, 6, '#5A5A6A'); px(x + lx - 1, y - 15, 3, 1, night ? C.shine : '#DDDDDD'); }
@@ -212,44 +225,37 @@
     const dt = Math.min(t - last, 500); last = t;
     const nowDate = new Date(), phase = sunPhase ?? phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
     const weather = weatherOn(nowDate.toLocaleDateString('en-CA'), season);
-    const lots = cityLayout(town, WIDTH - 16 - ROW_SHIFT);
-    const xOf = (l) => 8 + l.x + (l.row % 2 ? ROW_SHIFT : 0);
-    const baseOf = (l) => GROUND - l.row * ROW_RISE;
-    const rows = Math.max(0, ...lots.map((l) => l.row));
-    const front = lots.filter((l) => l.kind === 'tower' && l.row === 0);
+    const lots = cityLayout(town, WIDTH - 16);
+    const xOf = (l) => 8 + l.x;
+    const topOf = (l) => GROUND - l.h - l.storeys.length * FH;
+    const complete = (l) => l.done && l.storeys.every((s) => s.done);
+    const roofs = lots.filter((l) => STACKABLE.has(l.kind) && complete(l));
 
     ctx.clearRect(0, 0, WIDTH, 270);
     // the sky opens up as the city rises: it starts just above the rooftops and grows with the tallest tower
-    const skyline = Math.max(0, ...lots.map((l) => l.row * ROW_RISE + l.h));
+    const skyline = Math.max(0, ...lots.map((l) => GROUND - topOf(l)));
     if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(Math.max(0, GROUND - skyline - 30), phase, weather, t); ctx.globalAlpha = 1; }
     px(0, GROUND, WIDTH, 8, C.street);
 
-    // ponytail: rows stack ~10px each; past ~5 rows (90 towers) the city reaches the top — add paging then.
-    for (let row = rows; row >= 0; row--) {
-      ctx.filter = row ? 'brightness(0.7) saturate(0.8)' : 'none'; // distance: darker, still solid
-      lots.filter((l) => l.row === row).forEach((l, i) => {
-        const x = xOf(l), y = baseOf(l), night = phase !== 'day';
-        if (l.kind === 'house') house(x, y, night);
-        else if (l.kind === 'park') park(x, y, season);
-        else if (l.kind === 'tower') {
-          l.floors.forEach((f, k) => (f.done ? finished : scaffolding)(x, y - (k + 1) * FH, t));
-          if (l.complete) roof(x, y - l.floors.length * FH, l.name ?? l.id, t);
-        } else (l.done ? LOTS[l.kind](x, y, t, night) : scaffoldBox(x, y, l.w, l.h, t));
-        if (!row) (i % 2 ? lamp : (gx) => tree(gx, season))(x + l.w + 2, night);
+    // ponytail: storeys go on the shortest tower forever; past ~25 storeys it reaches the top — add a back row then.
+    lots.forEach((l, i) => {
+      const x = xOf(l), night = phase !== 'day';
+      l.done ? LOTS[l.kind](x, GROUND, t, night, season) : scaffoldBox(x, GROUND, l.w, l.h, t);
+      l.storeys.forEach((s, k) => {
+        const y = GROUND - l.h - (k + 1) * FH;
+        s.done ? (STOREY[l.kind] ?? STOREY.office)(x, y, night) : scaffolding(x, y, t);
       });
-    }
-    ctx.filter = 'none';
-    const catAt = catRoof(front.length, Date.now());
-    if (catAt !== null) {
-      const l = front[catAt];
-      cat(xOf(l) + 3, GROUND - l.floors.length * FH - (l.complete ? 2 : 0), t);
-    }
+      if (STACKABLE.has(l.kind) && complete(l)) roofCap(x, topOf(l), l.kind, t);
+      (i % 2 ? (gx) => lamp(gx + 2, night) : (gx) => tree(gx, season))(x + l.w, night);
+    });
+    const catAt = catRoof(roofs.length, Date.now());
+    if (catAt !== null) cat(xOf(roofs[catAt]) + 3, topOf(roofs[catAt]) - 2, t);
 
     // builders: walk to your scaffolding and hammer, otherwise wander
     const ids = new Set(builders.map((b) => b.id));
     for (const id of walkers.keys()) if (!ids.has(id)) walkers.delete(id);
     for (const { id } of builders) {
-      const site = lots.find((l) => l.id === id && (l.kind === 'tower' ? l.floors.some((f) => !f.done) : !l.done));
+      const site = lots.find((l) => (l.id === id && !l.done) || l.storeys.some((s) => s.id === id && !s.done));
       const home = site ? xOf(site) + site.w / 2 - 1 : null;
       const w = walkers.get(id) ?? { x: Math.random() * WIDTH, target: 0, mode: 'idle', until: 0 };
       const next = stepWalker(w, { dt, now: t, home, rand: Math.random, width: WIDTH - 4 });

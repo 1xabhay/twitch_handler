@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { handleCommand, newDay, type Town } from './town.ts';
+import { handleCommand, newDay, type Floor, type Town } from './town.ts';
+import { POOL } from './scene/city.ts';
 
 const sam = { userId: '1', userName: 'sam' };
 const open = (task: string) => ({ task, done: false });
 const done = (task: string) => ({ task, done: true });
-const samWith = (...floors: { task: string; done: boolean }[]): Town => ({ '1': { name: 'sam', floors } });
+const samWith = (...floors: Floor[]): Town => ({ '1': { name: 'sam', floors } });
 
 describe('handleCommand', () => {
   it('ignores messages that are not town commands', () => {
@@ -13,15 +14,15 @@ describe('handleCommand', () => {
   });
 
   describe('!task', () => {
-    it('adds a numbered floor under construction', () => {
-      const r = handleCommand({}, sam, '!task write chapter 3');
-      expect(r?.town).toEqual(samWith(open('write chapter 3')));
+    it('adds a numbered floor under construction, rolling its building and stamping when it was opened', () => {
+      const r = handleCommand({}, sam, '!task write chapter 3', 0, 42);
+      expect(r?.town).toEqual(samWith({ ...open('write chapter 3'), kind: POOL[0], at: 42 }));
       expect(r?.reply).toContain('1');
     });
 
     it('stacks new floors on top, with no limit', () => {
       const r = handleCommand(samWith(done('a'), open('b')), sam, '!task c');
-      expect(r?.town['1']?.floors).toEqual([done('a'), open('b'), open('c')]);
+      expect(r?.town['1']?.floors.map((f) => f.task)).toEqual(['a', 'b', 'c']);
       expect(r?.reply).toContain('3');
     });
 
