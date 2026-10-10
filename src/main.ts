@@ -12,6 +12,7 @@ import { phaseFromSun } from './scene/ambient.ts';
 import { announce, current, handleTimer, type Timer } from './focus.ts';
 import { canRequest, nowPlaying, parseMusic } from './music.ts';
 import { spotifyClient } from './spotify.ts';
+import { handleLink } from './links.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -88,7 +89,18 @@ let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${
 const listener = new EventSubWsListener({ apiClient: api });
 listener.onSubscriptionCreateFailure((sub, err) => console.error(`subscribe failed: ${sub.id}`, err));
 listener.onUserSocketDisconnect((_user, err) => console.error('eventsub disconnected', err ?? ''));
-listener.onStreamOnline(channel, (e) => { streamId = e.id; console.log(`live! stream ${streamId}`); });
+listener.onStreamOnline(channel, async (e) => {
+  streamId = e.id;
+  console.log(`live! stream ${streamId}`);
+  // Optional: DISCORD_WEBHOOK (Server Settings → Integrations → Webhooks) gets a "we're live" post.
+  if (!process.env.DISCORD_WEBHOOK) return;
+  const title = (await api.channels.getChannelInfoById(channel))?.title ?? '';
+  await fetch(process.env.DISCORD_WEBHOOK, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ content: `🔴 live now: **${title}**\nhttps://twitch.tv/${channel.name}` }),
+  }).catch((err) => console.error('discord post failed', err));
+});
 listener.onChannelFollow(channel, bot, (e) => push({ type: 'follow', name: e.userDisplayName }));
 listener.onChannelRaidTo(channel, (e) => push({ type: 'raid', from: e.raidingBroadcasterDisplayName, viewers: e.viewers }));
 listener.onChannelChatMessage(channel, bot, (e) => handleChat(e).catch((err) => console.error('chat handler failed', err)));
@@ -119,6 +131,9 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   if (cmd) await say(cmd.reply);
 
   const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
+  const link = handleLink(e.messageText, { discord: process.env.LINK_DISCORD, insta: process.env.LINK_INSTA, playlist: process.env.LINK_PLAYLIST });
+  if (link) await say(link);
+
   const music = parseMusic(e.messageText);
   if (music && spotify) await handleMusic(music, chatter, isMod).then(say, (err) => {
     console.error('music failed', err);
