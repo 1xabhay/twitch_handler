@@ -1,5 +1,5 @@
 // Imperative shell: Twitch I/O + file persistence. Logic lives in pure modules.
-import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, rename } from 'node:fs/promises';
 import { RefreshingAuthProvider } from '@twurple/auth';
 import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
@@ -25,13 +25,22 @@ const TOWN_FILE = 'data/town.json';
 const TIMER_FILE = 'data/timer.json';
 const GYM_FILE = 'data/gym.json';
 const OVERLAY_PORT = 3001;
+// A missing file means "start fresh"; a corrupt one stops the bot instead of silently starting empty and overwriting it.
 const readJson = async <T>(path: string, fallback: T): Promise<T> =>
-  readFile(path, 'utf8').then(JSON.parse, () => fallback);
+  readFile(path, 'utf8').then(JSON.parse, (err) => { if (err.code === 'ENOENT') return fallback; throw err; });
+// Atomic (temp file + rename) and in order per file: a crash or two quick saves can't leave a half-written file.
+const queues = new Map<string, Promise<unknown>>();
+const writeJson = (path: string, data: unknown) => {
+  const body = JSON.stringify(data, null, 2);
+  const next = (queues.get(path) ?? Promise.resolve()).then(() => writeFile(`${path}.tmp`, body)).then(() => rename(`${path}.tmp`, path));
+  queues.set(path, next.catch((err) => console.error(`save ${path} failed`, err)));
+  return next;
+};
 
 // One token file per logged-in account (bot + broadcaster), created by `npm run login -- bot|channel`.
 const auth = new RefreshingAuthProvider({ clientId, clientSecret });
-auth.onRefresh((userId, token) => writeFile(`tokens/${userId}.json`, JSON.stringify(token, null, 2)));
-for (const file of await readdir('tokens').catch(() => [])) {
+auth.onRefresh((userId, token) => writeJson(`tokens/${userId}.json`, token));
+for (const file of (await readdir('tokens').catch(() => [])).filter((f) => f.endsWith('.json'))) {
   await auth.addUserForToken(await readJson(`tokens/${file}`, null as never));
 }
 
@@ -43,6 +52,9 @@ await mkdir('data', { recursive: true });
 let viewers = await readJson<Viewers>(VIEWERS_FILE, {});
 let town = await readJson<Town>(TOWN_FILE, {});
 let timer = await readJson<Timer>(TIMER_FILE, null);
+if (timer && !current(timer, Date.now())) timer = null; // it ran out while the bot was off
+// a landmark whose focus block ended while the bot was off withers (no credit without the bot watching)
+if (current(timer, Date.now())?.phase.kind !== 'focus') town = stepLandmark(town, { wasFocus: true, isFocus: false, natural: false, min: 0 }, 0, Date.now());
 let lastPhase = current(timer, Date.now())?.i ?? null; // survives restarts without re-announcing
 // Spotify song requests (optional): SPOTIFY_CLIENT_ID + `npm run login:spotify`. Allowlist rationale: docs/MUSIC.md.
 const spotify = process.env.SPOTIFY_CLIENT_ID ? await spotifyClient(process.env.SPOTIFY_CLIENT_ID) : null;
@@ -52,7 +64,7 @@ const playlist = spotify && process.env.SPOTIFY_PLAYLIST ? await spotify.playlis
 let song: Awaited<ReturnType<NonNullable<typeof spotify>['current']>> = null;
 const requests: Record<string, number> = {}; // userId → last request time
 let gym = await readJson<Gym>(GYM_FILE, { wallet: {}, lastChat: {}, meter: 0, tier: 0, contributors: {}, pending: [], doneAt: [], enabled: true });
-const saveGym = (next: Gym) => { if (next === gym) return; gym = next; push(state()); void writeFile(GYM_FILE, JSON.stringify(gym)); };
+const saveGym = (next: Gym) => { if (next === gym) return; gym = next; push(state()); void writeJson(GYM_FILE, gym); };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
@@ -72,7 +84,7 @@ const saveTown = async (next: Town) => {
   if (next === town) return;
   town = next;
   push(state());
-  await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
+  await writeJson(TOWN_FILE, town);
 };
 // Focus blocks build the streamer's landmark (src/town.ts stepLandmark). Returns what opened, if anything.
 const landmarkStep = async (was: Current['phase'] | null, next: Current | null, natural: boolean) => {
@@ -85,7 +97,7 @@ const saveTimer = (next: Timer) => {
   timer = next;
   lastPhase = current(timer, Date.now())?.i ?? null;
   push(state());
-  return writeFile(TIMER_FILE, JSON.stringify(timer));
+  return writeJson(TIMER_FILE, timer);
 };
 setInterval(() => { // workouts fire at breaks (or anytime without a focus timer), capped per hour
   const c = current(timer, Date.now());
@@ -158,7 +170,7 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   const hello = greet(viewers, chatter, streamId);
   if (hello.message) {
     viewers = hello.viewers;
-    await writeFile(VIEWERS_FILE, JSON.stringify(viewers, null, 2));
+    await writeJson(VIEWERS_FILE, viewers);
     await say(hello.message);
   }
 
@@ -193,11 +205,12 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   });
   const t = handleTimer(timer, { isMod }, e.messageText, Date.now());
   if (t) {
-    if (t.timer !== timer && /^!timer\s+(start|skip|stop)\b/i.test(e.messageText.trim())) {
-      const now = Date.now();
-      await landmarkStep(current(timer, now)?.phase ?? null, current(t.timer, now), false);
+    if (t.timer !== timer) {
+      const now = Date.now(), was = current(timer, now)?.phase ?? null;
+      const saved = saveTimer(t.timer); // updates `timer` right away, so a second quick !timer sees the new state
+      if (/^!timer\s+(start|skip|stop)\b/i.test(e.messageText.trim())) await landmarkStep(was, current(t.timer, now), false);
+      await saved;
     }
-    if (t.timer !== timer) await saveTimer(t.timer);
     await say(t.reply);
   }
 };

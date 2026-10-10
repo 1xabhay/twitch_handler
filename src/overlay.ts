@@ -20,14 +20,14 @@ export const startOverlay = (port: number, snapshot: () => unknown) => {
     }
     const page = url.match(/^\/(town|timer|music|workout)(?:\?.*)?$/)?.[1];
     if (page) {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); // OBS must never show a stale page
       return res.end(await readFile(`public/${page}.html`));
     }
     const lib = url.match(/^\/lib\/((?:[\w-]+\/)*[\w-]+\.ts)$/)?.[1]; // no dots in dirs: no ../ escapes
     if (lib) {
       const src = await readFile(`src/${lib}`, 'utf8').catch(() => null);
       if (src !== null) {
-        res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+        res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
         return res.end(stripTypeScriptTypes(src));
       }
     }

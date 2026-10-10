@@ -29,8 +29,8 @@ describe('cityLayout', () => {
     const town: Town = { a: { name: 'a', floors: [fl('office', 1), fl('apartment', 2), fl('arena', 3, true), fl('park', 4), fl('pool', 5)] } };
     const [office, apartment, ...rest] = cityLayout(town, width);
     expect(rest).toEqual([]);
-    expect(office!.storeys).toEqual([{ id: 'a', done: true }, { id: 'a', done: false }]);
-    expect(apartment!.storeys).toEqual([{ id: 'a', done: false }]);
+    expect(office!.storeys).toEqual([{ id: 'a', done: true, at: 3 }, { id: 'a', done: false, at: 5 }]);
+    expect(apartment!.storeys).toEqual([{ id: 'a', done: false, at: 4 }]);
   });
 
   it('stacks on whatever is there when no lot is stackable', () => {
@@ -76,5 +76,15 @@ describe('streetLife', () => {
     expect(streetLife(city(2))).toEqual([]);
     expect(streetLife(city(3))).toEqual(['cars']);
     expect(streetLife(city(12))).toEqual(['cars', 'cart', 'balloon']);
+  });
+});
+
+describe('landmark room', () => {
+  it('landmarks never take more than half the street: the newest that fit stay', () => {
+    const width = 100; // half = 50 → room for two 20px skyscrapers incl. gap, not three
+    const town: Town = { [FOCUS_ID]: { name: 'focus', floors: [fl('skyscraper', 1, true), fl('skyscraper', 2, true), fl('skyscraper', 3)] } };
+    const lots = cityLayout(town, width);
+    expect(lots.map((l) => l.at)).toEqual([2, 3]);
+    expect(lots.every((l) => l.x >= width / 2 - GAP)).toBe(true);
   });
 });
