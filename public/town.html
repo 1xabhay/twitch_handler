@@ -16,7 +16,8 @@
   const WIDTH = 480, GROUND = 262, W = 16, GAP = 10, FH = 8;
   const params = new URLSearchParams(location.search);
   const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
-  ctx.canvas.style.opacity = params.get('alpha') ?? '0.8'; // ?alpha=1 → solid; lower = more see-through
+  ctx.canvas.style.opacity = params.get('alpha') ?? '0.6'; // ?alpha=1 → solid; lower = more see-through
+  const SKY_ALPHA = 0.5; // the sky is a faint tint over the camera, fainter than the city
   const SLOTS = Math.floor((WIDTH - 8) / (W + GAP)), ROW_RISE = 10;
   const C = {
     wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
@@ -29,7 +30,6 @@
   const LEAVES = { spring: '#8FD18F', summer: '#3E8E41', autumn: '#D9822B', winter: null };
   const FLAGS = ['#E4572E', '#4C9AFF', '#F4F4F4', '#C77DFF', '#2EC4B6', '#FF6F91'];
   const px = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
-  const label = (text, x, y, color = '#FFFFFF') => { ctx.fillStyle = color; ctx.font = '5px monospace'; ctx.fillText(text, Math.round(x), y); };
 
   // --- buildings -----------------------------------------------------------
   const scaffolding = (x, y, t) => { // under construction: shell, poles + brace, hazard band, slow beacon
@@ -158,7 +158,7 @@
     const front = lots.filter((l) => l.kind === 'tower' && l.row === 0);
 
     ctx.clearRect(0, 0, WIDTH, 270);
-    if (SKY) sky(Math.max(150, GROUND - rows * ROW_RISE - MAX_FLOORS * FH - 40), phase, weather, t);
+    if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(0, phase, weather, t); ctx.globalAlpha = 1; }
     px(0, GROUND, WIDTH, 8, C.street);
 
     // ponytail: rows stack ~10px each; past ~5 rows (90 towers) the city starts climbing again — add paging then.
@@ -173,7 +173,6 @@
           if (l.complete) roof(x, y - l.floors.length * FH, l.name ?? l.id, t);
         }
         if (row) continue;
-        if (l.kind === 'tower' && l.name) label(l.name.slice(0, 6), x, GROUND + 7);
         (l.col % 2 ? lamp : (gx) => tree(gx, season))(x + W + 2, phase !== 'day');
       }
     }
@@ -214,7 +213,6 @@
       v.x += (dt / 1000) * (v.kind === 'truck' ? 40 : 30);
       if (v.x > WIDTH + 30) { visitors.splice(i, 1); continue; }
       vehicle(v.x, v.kind === 'truck' ? '#4C9AFF' : '#F2C230', v.kind === 'bus');
-      label(v.name.slice(0, 12), v.x, GROUND - 9);
     }
     requestAnimationFrame(frame);
   };

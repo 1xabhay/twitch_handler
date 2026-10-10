@@ -40,7 +40,7 @@ Add each as a **Browser** source. The bot must be running.
 
 | URL | Size | Shows |
 |---|---|---|
-| `http://localhost:3001/town` | 1920×1080 | the town and sky (`?sky=0` for buildings only, `?alpha=0.6` to see through more; default 0.8) |
+| `http://localhost:3001/town` | 1920×1080 | the town and sky (`?sky=0` for buildings only, `?alpha=0.4` to see through more; default 0.6, sky fills the frame as a fainter tint; no names drawn) |
 | `http://localhost:3001/timer` | 600×200 | focus timer, hidden when no timer runs |
 | `http://localhost:3001/music` | 600×140 | now-playing card, hidden when nothing plays |
 | `http://localhost:3001/workout` | 600×160 | Workout Meter and workout banner |
