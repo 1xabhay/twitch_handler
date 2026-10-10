@@ -30,9 +30,9 @@ export const spotifyClient = async (clientId: string) => {
       headers: { Authorization: `Bearer ${tok!.accessToken}`, ...(body ? { 'content-type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (r.status === 204 || r.status === 202) return null;
-    if (!r.ok) throw new Error(`spotify ${method} ${path.split('?')[0]} → ${r.status} ${await r.text()}`);
-    return r.json();
+    const text = await r.text();
+    if (!r.ok) throw new Error(`spotify ${method} ${path.split('?')[0]} → ${r.status} ${text}`);
+    return (r.headers.get('content-type') ?? '').includes('json') && text ? JSON.parse(text) : null; // some endpoints reply with plain text or nothing
   };
 
   const labels = new Map<string, string>(); // album id → label
