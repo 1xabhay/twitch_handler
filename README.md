@@ -6,7 +6,7 @@ Runs on your own computer. No server, no subscription.
 
 ## Features
 
-- **Pixel town overlay.** Every viewer gets a building. `!task` adds a floor under scaffolding; `!done` lights its windows; a flag goes up when everything is finished. Buildings rise up to 10 floors (the sky opens up above them as they grow) and spread into a block next door, then into skyline rows behind; empty lots are houses and parks. The city starts fresh on your first go-live of the day (or mods run `!newday`) (finished floors archived, unfinished ones carry over).
+- **Pixel town overlay.** Every viewer gets a building. `!task` adds a floor under scaffolding; `!done` lights its windows; a flag goes up when everything is finished. Each new task rolls a SimCity-style lot: a tower floor (up to 10, the sky opens up as towers rise), shop, factory, water tower, wind turbine, fountain plaza, school, hospital or stadium; scaffolding until `!done` and spread into a block next door, then into skyline rows behind; empty lots are houses and parks. The city starts fresh on your first go-live of the day (or mods run `!newday`) (finished floors archived, unfinished ones carry over).
 - **Builders.** Anyone who chatted in the last 30 minutes walks the street and hammers at their own scaffolding (`!leave` / `!join` to opt out/in).
 - **Living scene.** Sky follows the real sunrise/sunset for your city, plus stars, moon, clouds, birds, seasonal trees, street lamps, daily rain/snow and a roof cat. Follows send a delivery truck; raids arrive by bus.
 - **Viewer greetings.** First-time chatters and returning regulars get different (playful) welcomes, once per stream.
@@ -40,7 +40,7 @@ Add each as a **Browser** source. The bot must be running.
 
 | URL | Size | Shows |
 |---|---|---|
-| `http://localhost:3001/town` | 1920×1080 | the town and sky (`?sky=0` for buildings only, `?alpha=0.4` to see through more; default 0.6, sky is a fainter tint that grows with the skyline; no names drawn) |
+| `http://localhost:3001/town` | 1920×1080 | the town and sky (`?sky=0` for buildings only, `?alpha=0.7` for a see-through overlay; buildings solid by default, sky is a faint tint that grows with the skyline; no names drawn) |
 | `http://localhost:3001/timer` | 600×200 | focus timer, hidden when no timer runs |
 | `http://localhost:3001/music` | 600×140 | now-playing card, hidden when nothing plays |
 | `http://localhost:3001/workout` | 600×160 | Workout Meter and workout banner |

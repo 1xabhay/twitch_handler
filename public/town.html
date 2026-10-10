@@ -10,15 +10,15 @@
 <script type="module">
   import { catRoof, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
-  import { cityLayout, MAX_FLOORS } from '/lib/scene/city.ts';
+  import { cityLayout, FH, GAP } from '/lib/scene/city.ts';
 
   const ctx = document.querySelector('canvas').getContext('2d');
-  const WIDTH = 480, GROUND = 262, W = 16, GAP = 10, FH = 8;
+  const WIDTH = 480, GROUND = 262, W = 16;
   const params = new URLSearchParams(location.search);
   const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
-  ctx.canvas.style.opacity = params.get('alpha') ?? '0.6'; // ?alpha=1 → solid; lower = more see-through
-  const SKY_ALPHA = 0.5; // the sky is a faint tint over the camera, fainter than the city
-  const SLOTS = Math.floor((WIDTH - 8) / (W + GAP)), ROW_RISE = 10;
+  ctx.canvas.style.opacity = params.get('alpha') ?? '1'; // ?alpha=0.7 → whole overlay see-through
+  const SKY_ALPHA = 0.5; // the sky is a faint tint over the camera; the city itself is solid
+  const ROW_RISE = 10, ROW_SHIFT = 13; // back rows sit higher and shifted into the gaps: a skyline
   const C = {
     wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
     hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
@@ -51,6 +51,67 @@
     const flag = FLAGS[hash(name) % FLAGS.length];
     if (Math.floor(t / 500) % 2 === 0) px(x + 12, y - 6, 3, 2, flag);
     else { px(x + 12, y - 6, 2, 2, flag); px(x + 14, y - 5, 1, 1, flag); }
+  };
+
+  const scaffoldBox = (x, y, w, h, t) => { // any lot under construction: shell, poles, planks, brace, hazard band
+    px(x, y - h, w, h, C.dark);
+    for (let i = 0; i < w; i += 6) px(x + i, y - h, 1, h, C.scaffold);
+    px(x + w - 1, y - h, 1, h, C.scaffold);
+    for (let j = 6; j < h; j += 6) px(x, y - j, w, 1, C.scaffold);
+    for (let j = 0; j < Math.min(w, h) - 1; j++) px(x + 1 + j, y - 1 - j, 1, 1, C.wall);
+    for (let i = 0; i < w; i += 4) { px(x + i, y - h, 2, 1, C.hazard); px(x + i + 2, y - h, 2, 1, C.hazardDark); }
+    if (Math.floor(t / 750) % 2 === 0) px(x + w - 1, y - h - 1, 1, 1, C.beacon);
+  };
+  // finished SimCity-style lots, drawn from the ground line y up; shapes carry meaning, not just colour
+  const glass = (night) => (night ? C.lit : '#9FC4E0');
+  const LOTS = {
+    shop: (x, y, t, night) => { // striped awning, shop window, door
+      px(x, y - 10, 16, 10, '#C9A27A');
+      for (let i = 0; i < 16; i += 2) px(x + i, y - 12, 2, 2, i % 4 ? '#F4F4F4' : '#E4572E');
+      px(x + 2, y - 8, 7, 5, glass(night)); px(x + 11, y - 7, 3, 7, C.dark);
+    },
+    factory: (x, y, t, night) => { // sawtooth roof, smokestack with slow puffs
+      px(x, y - 12, 18, 12, '#7A6A5A');
+      for (let i = 0; i < 18; i += 6) { px(x + i, y - 13, 5, 1, '#5A4A42'); px(x + i, y - 14, 3, 1, '#5A4A42'); }
+      for (let i = 0; i < 3; i++) px(x + 2 + i * 5, y - 8, 3, 2, glass(night));
+      px(x + 19, y - 22, 3, 22, '#5A4A42'); px(x + 19, y - 20, 3, 1, '#E4572E');
+      for (let k = 0; k < 3; k++) {
+        const p = (t / 3000 + k / 3) % 1;
+        ctx.fillStyle = `rgba(225,225,225,${(1 - p) * 0.8})`; ctx.fillRect(Math.round(x + 20 + p * 5), Math.round(y - 25 - p * 12), 2, 2);
+      }
+    },
+    watertower: (x, y) => { // tank on legs
+      px(x + 2, y - 12, 1, 12, '#6E8796'); px(x + 9, y - 12, 1, 12, '#6E8796'); px(x + 2, y - 7, 8, 1, '#6E8796');
+      px(x + 1, y - 20, 10, 8, '#9FB8C8'); px(x + 1, y - 16, 10, 1, '#6E8796'); px(x + 2, y - 22, 8, 2, '#6E8796');
+    },
+    turbine: (x, y, t) => { // wind turbine, blades turn slowly
+      px(x + 6, y - 22, 1, 22, '#E8E8E8');
+      if (Math.floor(t / 600) % 2) { px(x + 6, y - 28, 1, 6, '#F4F4F4'); px(x + 1, y - 22, 5, 1, '#F4F4F4'); px(x + 7, y - 22, 5, 1, '#F4F4F4'); }
+      else for (let i = 1; i < 5; i++) { px(x + 6 - i, y - 22 - i, 1, 1, '#F4F4F4'); px(x + 6 + i, y - 22 - i, 1, 1, '#F4F4F4'); px(x + 6 + i, y - 22 + i, 1, 1, '#F4F4F4'); }
+    },
+    fountain: (x, y, t) => { // plaza with a bubbling fountain and two bushes
+      px(x, y - 1, 16, 1, '#B8B0A0'); px(x + 3, y - 3, 10, 2, '#8A8A9A'); px(x + 4, y - 3, 8, 1, '#7FC8F8');
+      const f = Math.floor(t / 400) % 2;
+      px(x + 7, y - 7 + f, 2, 4 - f, '#BFE3FF'); px(x + 5, y - 6 + f, 1, 1, '#BFE3FF'); px(x + 10, y - 6 + f, 1, 1, '#BFE3FF');
+      px(x, y - 3, 2, 2, C.garden); px(x + 14, y - 3, 2, 2, C.garden);
+    },
+    school: (x, y, t, night) => { // brick block, bell tower with clock
+      px(x, y - 12, 24, 12, '#B5523B'); px(x - 1, y - 13, 26, 1, C.slab);
+      px(x + 9, y - 18, 6, 5, '#B5523B'); px(x + 10, y - 19, 4, 1, C.slab); px(x + 11, y - 17, 2, 2, '#F4F4F4');
+      for (const wx of [2, 6, 16, 20]) px(x + wx, y - 9, 2, 3, glass(night));
+      px(x + 10, y - 5, 4, 5, C.dark);
+    },
+    hospital: (x, y, t, night) => { // white block, big cross
+      px(x, y - 18, 20, 18, '#E8E8EC');
+      px(x + 9, y - 16, 2, 6, '#E4572E'); px(x + 7, y - 14, 6, 2, '#E4572E');
+      for (const wx of [2, 6, 12, 16]) px(x + wx, y - 8, 2, 2, glass(night));
+      px(x + 8, y - 4, 4, 4, '#9FC4E0');
+    },
+    stadium: (x, y, t, night) => { // seating bowl and floodlights
+      px(x, y - 8, 32, 8, '#8A8A9A'); px(x + 2, y - 10, 28, 2, '#A8A8B8');
+      for (let i = 4; i < 28; i += 3) px(x + i, y - 6, 2, 1, FLAGS[i % FLAGS.length]);
+      for (const lx of [0, 31]) { px(x + lx, y - 14, 1, 6, '#5A5A6A'); px(x + lx - 1, y - 15, 3, 1, night ? C.shine : '#DDDDDD'); }
+    },
   };
 
   const house = (x, y, night) => { // filler: little two-storey house with a pitched roof
@@ -151,34 +212,33 @@
     const dt = Math.min(t - last, 500); last = t;
     const nowDate = new Date(), phase = sunPhase ?? phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
     const weather = weatherOn(nowDate.toLocaleDateString('en-CA'), season);
-    const lots = cityLayout(town, SLOTS);
-    const xOf = (l) => 8 + l.col * (W + GAP) + (l.row % 2 ? 13 : 0); // back rows sit in the gaps: a skyline
+    const lots = cityLayout(town, WIDTH - 16 - ROW_SHIFT);
+    const xOf = (l) => 8 + l.x + (l.row % 2 ? ROW_SHIFT : 0);
     const baseOf = (l) => GROUND - l.row * ROW_RISE;
     const rows = Math.max(0, ...lots.map((l) => l.row));
     const front = lots.filter((l) => l.kind === 'tower' && l.row === 0);
 
     ctx.clearRect(0, 0, WIDTH, 270);
     // the sky opens up as the city rises: it starts just above the rooftops and grows with the tallest tower
-    const skyline = Math.max(0, ...lots.map((l) => l.row * ROW_RISE + (l.kind === 'tower' ? l.floors.length * FH : 12)));
+    const skyline = Math.max(0, ...lots.map((l) => l.row * ROW_RISE + l.h));
     if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(Math.max(0, GROUND - skyline - 30), phase, weather, t); ctx.globalAlpha = 1; }
     px(0, GROUND, WIDTH, 8, C.street);
 
     // ponytail: rows stack ~10px each; past ~5 rows (90 towers) the city reaches the top — add paging then.
     for (let row = rows; row >= 0; row--) {
-      ctx.globalAlpha = row ? 0.55 : 1; // distance haze
-      for (const l of lots.filter((l) => l.row === row)) {
-        const x = xOf(l), y = baseOf(l);
-        if (l.kind === 'house') house(x, y, phase !== 'day');
+      ctx.filter = row ? 'brightness(0.7) saturate(0.8)' : 'none'; // distance: darker, still solid
+      lots.filter((l) => l.row === row).forEach((l, i) => {
+        const x = xOf(l), y = baseOf(l), night = phase !== 'day';
+        if (l.kind === 'house') house(x, y, night);
         else if (l.kind === 'park') park(x, y, season);
-        else {
+        else if (l.kind === 'tower') {
           l.floors.forEach((f, k) => (f.done ? finished : scaffolding)(x, y - (k + 1) * FH, t));
           if (l.complete) roof(x, y - l.floors.length * FH, l.name ?? l.id, t);
-        }
-        if (row) continue;
-        (l.col % 2 ? lamp : (gx) => tree(gx, season))(x + W + 2, phase !== 'day');
-      }
+        } else (l.done ? LOTS[l.kind](x, y, t, night) : scaffoldBox(x, y, l.w, l.h, t));
+        if (!row) (i % 2 ? lamp : (gx) => tree(gx, season))(x + l.w + 2, night);
+      });
     }
-    ctx.globalAlpha = 1;
+    ctx.filter = 'none';
     const catAt = catRoof(front.length, Date.now());
     if (catAt !== null) {
       const l = front[catAt];
@@ -189,8 +249,8 @@
     const ids = new Set(builders.map((b) => b.id));
     for (const id of walkers.keys()) if (!ids.has(id)) walkers.delete(id);
     for (const { id } of builders) {
-      const site = lots.find((l) => l.kind === 'tower' && l.id === id && l.floors.some((f) => !f.done));
-      const home = site ? xOf(site) + 6 : null;
+      const site = lots.find((l) => l.id === id && (l.kind === 'tower' ? l.floors.some((f) => !f.done) : !l.done));
+      const home = site ? xOf(site) + site.w / 2 - 1 : null;
       const w = walkers.get(id) ?? { x: Math.random() * WIDTH, target: 0, mode: 'idle', until: 0 };
       const next = stepWalker(w, { dt, now: t, home, rand: Math.random, width: WIDTH - 4 });
       walkers.set(id, next);
