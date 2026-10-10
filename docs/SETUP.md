@@ -19,8 +19,6 @@ npm start
 In the broadcaster's chat: `/mod <botname>` (lets the bot see follows and get the Chat Bot badge).
 
 Tip: use a separate bot account. Logging in through a browser that's signed into the wrong account silently authorizes that account — device-code flow avoids it.
-```
-```
 
 ## OBS
 - `brew install --cask obs`. Allow Screen Recording, Camera, Microphone.
