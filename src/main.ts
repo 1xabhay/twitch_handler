@@ -7,6 +7,7 @@ import type { EventSubChannelChatMessageEvent } from '@twurple/eventsub-base';
 import { greet, type Viewers } from './greet.ts';
 import { handleCommand, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
+import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
 if (!clientId || !clientSecret || !TWITCH_CHANNEL || !TWITCH_BOT) throw new Error('Missing TWITCH_* vars in .env');
@@ -29,13 +30,18 @@ if (!channel || !bot) throw new Error('TWITCH_CHANNEL or TWITCH_BOT not found on
 await mkdir('data', { recursive: true });
 let viewers = await readJson<Viewers>(VIEWERS_FILE, {});
 let town = await readJson<Town>(TOWN_FILE, {});
-const pushTown = startOverlay(OVERLAY_PORT, () => town);
+let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
+const state = () => ({ type: 'state', town, builders: activeBuilders(crowd, Date.now()) });
+const push = startOverlay(OVERLAY_PORT, state);
+setInterval(() => push(state()), 60_000); // let quiet builders clock out
 let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${new Date().toISOString().slice(0, 10)}`;
 
 const listener = new EventSubWsListener({ apiClient: api });
 listener.onSubscriptionCreateFailure((sub, err) => console.error(`subscribe failed: ${sub.id}`, err));
 listener.onUserSocketDisconnect((_user, err) => console.error('eventsub disconnected', err ?? ''));
 listener.onStreamOnline(channel, (e) => { streamId = e.id; console.log(`live! stream ${streamId}`); });
+listener.onChannelFollow(channel, channel, (e) => push({ type: 'follow', name: e.userDisplayName }));
+listener.onChannelRaidTo(channel, (e) => push({ type: 'raid', from: e.raidingBroadcasterDisplayName, viewers: e.viewers }));
 listener.onChannelChatMessage(channel, bot, (e) => handleChat(e).catch((err) => console.error('chat handler failed', err)));
 
 const handleChat = async (e: EventSubChannelChatMessageEvent) => {
@@ -51,15 +57,18 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
     await say(hello.message);
   }
 
+  crowd = handleCrowd(crowd, chatter, e.messageText, Date.now());
+  const word = e.messageText.trim().toLowerCase();
+  if (word === '!join') await say(`@${chatter.userName} grabs a hard hat 👷`);
+  if (word === '!leave') await say(`@${chatter.userName} clocks out 👋 (!join to come back)`);
+
   const cmd = handleCommand(town, chatter, e.messageText);
-  if (cmd) {
-    if (cmd.town !== town) {
-      town = cmd.town;
-      await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
-      pushTown(town);
-    }
-    await say(cmd.reply);
+  if (cmd && cmd.town !== town) {
+    town = cmd.town;
+    await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
   }
+  push(state());
+  if (cmd) await say(cmd.reply);
 };
 listener.start();
 console.log(`listening to #${channel.name} as ${bot.name} (stream: ${streamId})`);

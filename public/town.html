@@ -7,19 +7,28 @@
   canvas { width: 100vw; height: 100vh; image-rendering: pixelated; }
 </style>
 <canvas width="480" height="270"></canvas>
-<script>
+<script type="module">
+  import { catRoof, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
+  import { stepWalker } from '/lib/scene/crowd.ts';
+
   const ctx = document.querySelector('canvas').getContext('2d');
-  const GROUND = 262, W = 16, GAP = 6, FH = 8;
+  const WIDTH = 480, GROUND = 262, W = 16, GAP = 10, FH = 8;
+  const SKY = new URLSearchParams(location.search).get('sky') !== '0'; // ?sky=0 → town only, no backdrop
   const C = {
     wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
     hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
+    street: '#3B3B4F', hat: '#F2C230', vest: '#FF8A3D', skin: '#E8B796', legs: '#3A4A6B', cat: '#1E1E24',
   };
+  const SKIES = {
+    night: ['#0B1026', '#1C2448'], dawn: ['#3A3F7A', '#F2A07B'], day: ['#5FA8E8', '#BFE3FF'], dusk: ['#2B2D5C', '#E8735A'],
+  };
+  const LEAVES = { spring: '#8FD18F', summer: '#3E8E41', autumn: '#D9822B', winter: null };
   const FLAGS = ['#E4572E', '#4C9AFF', '#F4F4F4', '#C77DFF', '#2EC4B6', '#FF6F91'];
-  const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
-  const px = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
+  const px = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+  const label = (text, x, y, color = '#FFFFFF') => { ctx.fillStyle = color; ctx.font = '5px monospace'; ctx.fillText(text, Math.round(x), y); };
 
-  // Under construction: empty shell, scaffold poles + brace, hazard band, slow blinking beacon.
-  const building = (x, y, t) => {
+  // --- buildings -----------------------------------------------------------
+  const scaffolding = (x, y, t) => { // under construction: shell, poles + brace, hazard band, slow beacon
     px(x, y, W, FH, C.dark);
     px(x + 1, y, 1, FH, C.wall); px(x + 14, y, 1, FH, C.wall); px(x + 1, y + 7, 14, 1, C.wall);
     for (let i = 0; i < W; i += 4) { px(x + i, y, 2, 1, C.hazard); px(x + i + 2, y, 2, 1, C.hazardDark); }
@@ -27,16 +36,11 @@
     for (let j = 0; j < 6; j++) px(x + 1 + j, y + 6 - j, 1, 1, C.scaffold);
     if (Math.floor(t / 750) % 2 === 0) px(x + 15, y - 1, 1, 1, C.beacon);
   };
-
-  // Done: solid wall, lit windows.
-  const finished = (x, y) => {
-    px(x, y, W, FH, C.wall);
-    px(x, y + 7, W, 1, C.slab);
+  const finished = (x, y) => { // done: solid wall, lit windows
+    px(x, y, W, FH, C.wall); px(x, y + 7, W, 1, C.slab);
     for (const wx of [3, 7, 11]) { px(x + wx, y + 2, 2, 3, C.lit); px(x + wx, y + 2, 1, 1, C.shine); }
   };
-
-  // Building complete: roof cap, a little garden, the owner's flag fluttering.
-  const roof = (x, y, name, t) => {
+  const roof = (x, y, name, t) => { // complete: roof cap, garden, owner's flag
     px(x, y - 2, W, 2, C.slab);
     for (const gx of [2, 3, 5]) px(x + gx, y - 3, 1, 1, C.garden);
     px(x + 11, y - 6, 1, 4, C.slab);
@@ -45,21 +49,156 @@
     else { px(x + 12, y - 6, 2, 2, flag); px(x + 14, y - 5, 1, 1, flag); }
   };
 
-  let town = {};
-  const draw = (t) => {
-    ctx.clearRect(0, 0, 480, 270);
-    px(0, GROUND, 480, 8, '#3b3b4f');
-    // ponytail: one row of ~21 buildings, ~30 floors tall; wrap into streets/scroll when the town outgrows it.
-    Object.values(town).filter((b) => b.floors.length).forEach((b, i) => {
-      const x = 4 + i * (W + GAP);
-      b.floors.forEach((f, k) => (f.done ? finished : building)(x, GROUND - (k + 1) * FH, t));
-      if (b.floors.every((f) => f.done)) roof(x, GROUND - b.floors.length * FH, b.name, t);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '5px monospace';
-      ctx.fillText(b.name.slice(0, 6), x, GROUND + 7);
-    });
+  // --- ambient -------------------------------------------------------------
+  const sky = (top, phase, weather, t) => {
+    const g = ctx.createLinearGradient(0, top, 0, GROUND);
+    g.addColorStop(0, SKIES[phase][0]); g.addColorStop(1, SKIES[phase][1]);
+    ctx.fillStyle = g; ctx.fillRect(0, top, WIDTH, GROUND - top);
+    if (phase === 'night') {
+      for (let i = 0; i < 40; i++) {
+        const sx = hash('sx' + i) % WIDTH, sy = top + (hash('sy' + i) % (GROUND - top - 20));
+        if ((Math.floor(t / 1500) + i) % 9) px(sx, sy, 1, 1, '#FFFFFF'); // gentle twinkle
+      }
+      const mx = WIDTH - 60, my = top + 8; // crescent moon
+      px(mx + 1, my, 3, 1, '#F4F1DE'); px(mx, my + 1, 5, 3, '#F4F1DE'); px(mx + 1, my + 4, 3, 1, '#F4F1DE');
+      px(mx + 2, my + 1, 3, 3, SKIES.night[0]);
+    }
+    if (phase === 'day') px(WIDTH - 60, top + 8, 6, 6, '#FFE38A');
+    if (weather === 'clear' || phase === 'night') {
+      for (let i = 0; i < 3; i++) { // clouds
+        const cx = drift(i + 1, t, WIDTH, 2 + i), cy = top + 6 + i * 9;
+        const shade = phase === 'night' ? '#2A3260' : '#FFFFFF';
+        px(cx, cy + 2, 14, 3, shade); px(cx + 3, cy, 7, 2, shade);
+      }
+    } else {
+      px(0, top, WIDTH, 10, '#8A93A8'); // overcast band
+    }
+    if (phase === 'day' && Math.floor(t / 45_000) % 3 === 0) { // a bird now and then
+      const bx = drift(9, t, WIDTH, 25), by = top + 14, up = Math.floor(t / 300) % 2;
+      px(bx, by + up, 1, 1, '#2A2A3A'); px(bx + 1, by + 1, 1, 1, '#2A2A3A'); px(bx + 2, by + up, 1, 1, '#2A2A3A');
+    }
+    if (weather !== 'clear') {
+      for (let i = 0; i < 60; i++) {
+        const fall = weather === 'rain' ? 120 : 15;
+        const x = (hash('wx' + i) + (weather === 'snow' ? Math.sin(t / 900 + i) * 3 : 0)) % WIDTH;
+        const y = top + (((hash('wy' + i) + (t / 1000) * fall) % (GROUND - top)));
+        weather === 'rain' ? px(x, y, 1, 3, '#9FB8D8') : px(x, y, 1, 1, '#FFFFFF');
+      }
+    }
+  };
+  const tree = (x, season) => {
+    px(x + 2, GROUND - 4, 1, 4, '#6B4A2B');
+    const leaves = LEAVES[season];
+    if (leaves) { px(x, GROUND - 9, 5, 5, leaves); if (season === 'spring') px(x + 1, GROUND - 8, 1, 1, '#F7A8C4'); }
+    else px(x + 1, GROUND - 6, 3, 1, '#F4F4F4'); // bare branch with snow
+  };
+  const lamp = (x, on) => {
+    px(x, GROUND - 8, 1, 8, '#2A2A3A'); px(x - 1, GROUND - 9, 3, 1, '#2A2A3A');
+    if (on) { ctx.fillStyle = 'rgba(255,210,122,0.25)'; ctx.fillRect(x - 3, GROUND - 9, 7, 9); px(x, GROUND - 8, 1, 1, C.lit); }
+  };
+  const cat = (x, y, t) => {
+    px(x, y - 2, 4, 2, C.cat); px(x, y - 3, 1, 1, C.cat); px(x + 2, y - 3, 1, 1, C.cat); // body + ears
+    px(x + 4, y - (Math.floor(t / 2500) % 4 === 0 ? 3 : 1), 1, 1, C.cat); // tail flick now and then
   };
 
-  new EventSource('/events').onmessage = (e) => { town = JSON.parse(e.data); draw(performance.now()); };
-  setInterval(() => draw(performance.now()), 250); // calm: ~4 redraws/s, blink at 0.67 Hz
+  // --- builders, trucks, buses ---------------------------------------------
+  const builderSprite = (x, mode, t, jump = 0) => {
+    const y = GROUND - 7 - jump, step = mode === 'walk' && Math.floor(t / 200) % 2;
+    px(x, y, 3, 1, C.hat); px(x, y + 1, 3, 2, C.skin); px(x, y + 3, 3, 2, C.vest);
+    px(x, y + 5, 1, 2, C.legs); px(x + 2, y + 5 + (step ? -1 : 0), 1, 2, C.legs);
+    if (mode === 'hammer') px(x + 3, y + 2 + (Math.floor(t / 250) % 2), 1, 1, '#9A9A9A');
+  };
+  const vehicle = (x, color, long) => {
+    const len = long ? 22 : 14;
+    px(x, GROUND - 7, len, 5, color); px(x + len - 4, GROUND - 6, 3, 2, '#BFE3FF');
+    if (long) for (let i = 2; i < len - 6; i += 4) px(x + i, GROUND - 6, 2, 2, '#BFE3FF');
+    px(x + 2, GROUND - 2, 2, 2, '#1E1E1E'); px(x + len - 5, GROUND - 2, 2, 2, '#1E1E1E');
+  };
+
+  // --- state ---------------------------------------------------------------
+  let town = {}, builders = [];
+  const walkers = new Map();   // id -> Walker
+  const doneCounts = new Map(); // id -> finished floors, to spot a fresh !done and jump
+  const jumps = new Map();      // id -> jump until (ms)
+  const visitors = [];          // { x, kind: 'truck'|'bus', name, raiders, phase }
+  const raiders = [];           // anonymous builders that came with a raid: { w, until }
+
+  const onState = (msg, now) => {
+    for (const [id, b] of Object.entries(msg.town)) {
+      const n = b.floors.filter((f) => f.done).length;
+      if (doneCounts.has(id) && n > doneCounts.get(id)) jumps.set(id, now + 1200);
+      doneCounts.set(id, n);
+    }
+    town = msg.town; builders = msg.builders;
+  };
+
+  let last = performance.now();
+  const frame = (t) => {
+    const dt = Math.min(t - last, 500); last = t;
+    const nowDate = new Date(), phase = phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
+    const weather = weatherOn(nowDate.toLocaleDateString('en-CA'), season);
+    const list = Object.entries(town).filter(([, b]) => b.floors.length);
+    const xOf = (i) => 8 + i * (W + GAP);
+    const tallest = Math.max(0, ...list.map(([, b]) => b.floors.length));
+
+    ctx.clearRect(0, 0, WIDTH, 270);
+    if (SKY) sky(Math.max(150, GROUND - tallest * FH - 40), phase, weather, t);
+    px(0, GROUND, WIDTH, 8, C.street);
+
+    // ponytail: one row of ~18 buildings, ~25 floors tall; wrap into streets/scroll when the town outgrows it.
+    list.forEach(([, b], i) => {
+      const x = xOf(i);
+      b.floors.forEach((f, k) => (f.done ? finished : scaffolding)(x, GROUND - (k + 1) * FH, t));
+      if (b.floors.every((f) => f.done)) roof(x, GROUND - b.floors.length * FH, b.name, t);
+      label(b.name.slice(0, 6), x, GROUND + 7);
+      (i % 2 ? lamp : (gx) => tree(gx, season))(x + W + 2, phase !== 'day');
+    });
+    const catAt = catRoof(list.length, Date.now());
+    if (catAt !== null) {
+      const [, b] = list[catAt]; const complete = b.floors.every((f) => f.done);
+      cat(xOf(catAt) + 3, GROUND - b.floors.length * FH - (complete ? 2 : 0), t);
+    }
+
+    // builders: walk to your scaffolding and hammer, otherwise wander
+    const ids = new Set(builders.map((b) => b.id));
+    for (const id of walkers.keys()) if (!ids.has(id)) walkers.delete(id);
+    for (const { id } of builders) {
+      const i = list.findIndex(([bid]) => bid === id);
+      const home = i >= 0 && list[i][1].floors.some((f) => !f.done) ? xOf(i) + 6 : null;
+      const w = walkers.get(id) ?? { x: Math.random() * WIDTH, target: 0, mode: 'idle', until: 0 };
+      const next = stepWalker(w, { dt, now: t, home, rand: Math.random, width: WIDTH - 4 });
+      walkers.set(id, next);
+      builderSprite(next.x, next.mode, t, (jumps.get(id) ?? 0) > Date.now() ? 2 : 0);
+    }
+    for (let i = raiders.length - 1; i >= 0; i--) {
+      const r = raiders[i];
+      if (Date.now() > r.until) { raiders.splice(i, 1); continue; }
+      r.w = stepWalker(r.w, { dt, now: t, home: null, rand: Math.random, width: WIDTH - 4 });
+      builderSprite(r.w.x, r.w.mode, t);
+    }
+
+    // visitors: delivery truck for a follow, a bus of builders for a raid
+    for (let i = visitors.length - 1; i >= 0; i--) {
+      const v = visitors[i];
+      if (v.kind === 'bus' && v.phase === 'arrive' && v.x >= WIDTH / 2 - 11) { // stop, unload, leave
+        v.phase = 'leave';
+        for (let k = 0; k < Math.min(v.raiders, 12); k++) {
+          raiders.push({ w: { x: v.x + 10, target: 0, mode: 'idle', until: 0 }, until: Date.now() + 10 * 60_000 });
+        }
+      }
+      v.x += (dt / 1000) * (v.kind === 'truck' ? 40 : 30);
+      if (v.x > WIDTH + 30) { visitors.splice(i, 1); continue; }
+      vehicle(v.x, v.kind === 'truck' ? '#4C9AFF' : '#F2C230', v.kind === 'bus');
+      label(v.name.slice(0, 12), v.x, GROUND - 9);
+    }
+    requestAnimationFrame(frame);
+  };
+
+  new EventSource('/events').onmessage = (e) => {
+    const msg = JSON.parse(e.data), now = Date.now();
+    if (msg.type === 'state') onState(msg, now);
+    if (msg.type === 'follow') visitors.push({ kind: 'truck', x: -20, name: msg.name });
+    if (msg.type === 'raid') visitors.push({ kind: 'bus', x: -30, name: msg.from, raiders: msg.viewers, phase: 'arrive' });
+  };
+  requestAnimationFrame(frame);
 </script>
