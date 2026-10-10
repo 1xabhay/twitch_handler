@@ -5,11 +5,12 @@ import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import type { EventSubChannelChatMessageEvent } from '@twurple/eventsub-base';
 import { greet, type Viewers } from './greet.ts';
-import { handleCommand, newDay, type Town } from './town.ts';
+import { handleCommand, newDay, stepLandmark, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
-import { announce, current, handleTimer, type Timer } from './focus.ts';
+import { FOCUS_ID } from './scene/city.ts';
+import { announce, current, handleTimer, PRESETS, type Current, type Timer } from './focus.ts';
 import { canRequest, nowPlaying, parseMusic } from './music.ts';
 import { spotifyClient } from './spotify.ts';
 import { handleLink } from './links.ts';
@@ -66,6 +67,19 @@ const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
 const say = (text: string) => api.chat.sendChatMessageAsApp(bot, channel, text);
+const saveTown = async (next: Town) => {
+  if (next === town) return;
+  town = next;
+  push(state());
+  await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
+};
+// Focus blocks build the streamer's landmark (src/town.ts stepLandmark). Returns what opened, if anything.
+const landmarkStep = async (was: Current['phase'] | null, next: Current | null, natural: boolean) => {
+  const before = town[FOCUS_ID]?.floors.find((f) => !f.done)?.kind;
+  const wasFocus = was?.kind === 'focus', isFocus = next?.phase.kind === 'focus';
+  await saveTown(stepLandmark(town, { wasFocus, isFocus, natural, min: next?.phase.min ?? 0 }, Math.random(), Date.now()));
+  return wasFocus && natural ? before : undefined;
+};
 const saveTimer = (next: Timer) => {
   timer = next;
   lastPhase = current(timer, Date.now())?.i ?? null;
@@ -86,7 +100,11 @@ setInterval(() => { // announce each phase change; the overlay counts down on it
   if (!timer) return;
   const c = current(timer, Date.now());
   if ((c?.i ?? null) === lastPhase) return;
-  say(announce(c)).catch((err) => console.error('announce failed', err));
+  const was = lastPhase === null ? null : PRESETS[timer.preset][lastPhase]!;
+  lastPhase = c?.i ?? null; // claim the change now: the landmark write below is async
+  void landmarkStep(was, c, true).then((opened) => {
+    say(announce(c) + (opened ? ` · a new ${opened} just opened in town 🏛️` : '')).catch((err) => console.error('announce failed', err));
+  });
   void saveTimer(c ? timer : null);
 }, 1000);
 if (spotify) {
@@ -109,9 +127,7 @@ const startNewDay = async (auto: boolean) => {
   const first = await writeFile(`${day}.json`, body, { flag: 'wx' }).then(() => true, () => false);
   if (!first && auto) return;
   if (!first) await writeFile(`${day}-${Date.now()}.json`, body); // second manual reset today: never overwrite an archive
-  town = newDay(town);
-  await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
-  push(state());
+  await saveTown(newDay(town));
 };
 listener.onStreamOnline(channel, async (e) => {
   streamId = e.id;
@@ -159,10 +175,7 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   const doneBefore = town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0;
   const cmd = handleCommand(town, chatter, e.messageText);
   if (cmd && (cmd.town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0) > doneBefore) saveGym(earnDone(gym, chatter.userId));
-  if (cmd && cmd.town !== town) {
-    town = cmd.town;
-    await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
-  }
+  if (cmd) await saveTown(cmd.town);
   push(state());
   if (cmd) await say(cmd.reply);
 
@@ -179,6 +192,10 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   });
   const t = handleTimer(timer, { isMod }, e.messageText, Date.now());
   if (t) {
+    if (t.timer !== timer && /^!timer\s+(start|skip|stop)\b/i.test(e.messageText.trim())) {
+      const now = Date.now();
+      await landmarkStep(current(timer, now)?.phase ?? null, current(t.timer, now), false);
+    }
     if (t.timer !== timer) await saveTimer(t.timer);
     await say(t.reply);
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cityLayout, pickKind, POOL, SIZE, STACKABLE, type Kind } from './city.ts';
+import { cityLayout, FOCUS_ID, GAP, LANDMARKS, landmarkFor, pickKind, POOL, SIZE, STACKABLE, streetLife, type Kind } from './city.ts';
 import type { Floor, Town } from '../town.ts';
 
 const fl = (kind: Kind, at: number, done = false): Floor => ({ task: `t${at}`, done, kind, at });
@@ -46,5 +46,35 @@ describe('cityLayout', () => {
 
   it('only offices and apartments are stackable', () => {
     expect([...STACKABLE].sort()).toEqual(['apartment', 'office']);
+  });
+});
+
+describe('focus landmarks', () => {
+  it('scale with focus length', () => {
+    expect(LANDMARKS.small).toContain(landmarkFor(25, 0));
+    expect(LANDMARKS.civic).toContain(landmarkFor(50, 0.5));
+    expect(LANDMARKS.grand).toContain(landmarkFor(90, 0.99));
+  });
+
+  it('fill from the right end of the street and never become storeys', () => {
+    const width = 100;
+    const town: Town = {
+      [FOCUS_ID]: { name: 'focus', floors: [fl('skyscraper', 1, true), fl('fountain', 5)] },
+      a: { name: 'a', floors: [fl('office', 2), fl('arena', 3), fl('park', 4)] },
+    };
+    const lots = cityLayout(town, width);
+    const [sky, fountain] = lots.filter((l) => l.id === FOCUS_ID);
+    expect(sky!.x + sky!.w).toBe(width);
+    expect(fountain!.x + fountain!.w).toBe(sky!.x - GAP);
+    expect(lots.filter((l) => l.id === 'a').every((l) => l.x + l.w <= fountain!.x)).toBe(true);
+  });
+});
+
+describe('streetLife', () => {
+  it('unlocks calm street life as buildings get finished', () => {
+    const city = (n: number) => cityLayout({ a: { name: 'a', floors: Array.from({ length: n }, (_, i) => fl('office', i, true)) } }, 2000);
+    expect(streetLife(city(2))).toEqual([]);
+    expect(streetLife(city(3))).toEqual(['cars']);
+    expect(streetLife(city(12))).toEqual(['cars', 'cart', 'balloon']);
   });
 });

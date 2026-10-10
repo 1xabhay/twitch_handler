@@ -1,5 +1,5 @@
 import type { Chatter } from './greet.ts';
-import { pickKind, type Kind } from './scene/city.ts';
+import { FOCUS_ID, landmarkFor, pickKind, type Kind } from './scene/city.ts';
 
 export type Floor = { task: string; done: boolean; kind?: Kind; at?: number }; // kind/at: what it builds, when opened
 export type Building = { name: string; floors: Floor[] };
@@ -17,6 +17,17 @@ export const newDay = (town: Town): Town =>
   }));
 
 // rand/now come from the shell so this stays pure: rand rolls the building, now orders it on the street.
+// The streamer's focus blocks build landmarks: one starts with each focus block and opens when the block ends
+// on time; stopping or skipping mid-block lets it wither. min = length of the phase being entered.
+type Step = { wasFocus: boolean; isFocus: boolean; natural: boolean; min: number };
+export const stepLandmark = (town: Town, { wasFocus, isFocus, natural, min }: Step, rand: number, now: number): Town => {
+  if (!wasFocus && !isFocus) return town;
+  let floors = town[FOCUS_ID]?.floors ?? [];
+  if (wasFocus) floors = natural ? floors.map((f) => (f.done ? f : { ...f, done: true })) : floors.filter((f) => f.done);
+  if (isFocus) floors = [...floors, { task: 'focus', done: false, kind: landmarkFor(min, rand), at: now }];
+  return { ...town, [FOCUS_ID]: { name: 'focus', floors } };
+};
+
 export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string, rand = Math.random(), now = Date.now()) => {
   const [, cmd, rest = ''] = text.match(/^!(\w+)\s*(.*)$/s) ?? [];
   const floors = town[userId]?.floors ?? [];

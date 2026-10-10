@@ -10,7 +10,8 @@
 <script type="module">
   import { catRoof, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
-  import { cityLayout, FH, STACKABLE } from '/lib/scene/city.ts';
+  import { cityLayout, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
+  import { current } from '/lib/focus.ts';
 
   const ctx = document.querySelector('canvas').getContext('2d');
   const WIDTH = 480, GROUND = 262, W = 16;
@@ -120,6 +121,30 @@
       for (const wx of [2, 6, 12, 16]) px(x + wx, y - 8, 2, 2, glass(night));
       px(x + 8, y - 4, 4, 4, '#9FC4E0');
     },
+    clocktower: (x, y, t, night) => { // the clock shows the real minute hand
+      px(x + 2, y - 28, 10, 28, '#C9B38A'); px(x + 3, y - 30, 8, 2, '#8C5E48'); px(x + 5, y - 32, 4, 2, '#8C5E48'); px(x + 6, y - 34, 2, 2, '#8C5E48');
+      px(x + 4, y - 25, 6, 6, '#F4F4F4'); px(x + 6, y - 23, 2, 2, C.dark);
+      const [hx, hy, hw, hh] = [[6, -25, 1, 2], [8, -23, 2, 1], [6, -21, 1, 2], [4, -23, 2, 1]][Math.floor(new Date().getMinutes() / 15)];
+      px(x + hx, y + hy, hw, hh, C.dark); // minute hand, quarter-hour steps
+      px(x + 6, y - 15, 2, 4, glass(night)); px(x + 5, y - 5, 4, 5, C.dark);
+    },
+    skyscraper: (x, y, t, night) => { // glass tower, a few windows lit at night, slow beacon on the spire
+      px(x, y - 60, 20, 60, '#4A6A8A'); px(x + 3, y - 62, 14, 2, '#36506A'); px(x + 9, y - 64, 2, 2, '#36506A');
+      for (let j = 0; j < 14; j++) for (let c = 0; c < 4; c++)
+        px(x + 2 + c * 5, y - 57 + j * 4, 3, 2, night ? (hash(`w${j}:${c}`) % 3 ? C.lit : '#2A3A4A') : '#9FC4E0');
+      if (Math.floor(t / 1500) % 2) px(x + 9, y - 65, 1, 1, '#E4572E');
+    },
+    ferris: (x, y, t) => { // slowly turning wheel with coloured cabins
+      const cx = x + 14, cy = y - 16, a0 = t / 9000;
+      for (const lx of [-8, 8]) for (let k = 0; k <= 16; k++) px(cx + (lx * k) / 16, cy + k, 1, 1, '#8A8A9A');
+      px(x + 4, y - 1, 20, 1, '#8A8A9A');
+      for (let k = 0; k < 28; k++) px(cx + Math.cos(k / 28 * 2 * Math.PI) * 12, cy + Math.sin(k / 28 * 2 * Math.PI) * 12, 1, 1, '#E8E8E8');
+      for (let k = 0; k < 8; k++) {
+        const a = a0 + (k / 8) * 2 * Math.PI;
+        if (k % 2 === 0) for (let r = 2; r < 12; r += 2) px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, '#C0C0C8');
+        px(cx + Math.cos(a) * 12 - 1, cy + Math.sin(a) * 12, 3, 2, FLAGS[k % FLAGS.length]);
+      }
+    },
     arena: (x, y, t, night) => { // seating bowl and floodlights
       px(x, y - 8, 32, 8, '#8A8A9A'); px(x + 2, y - 10, 28, 2, '#A8A8B8');
       for (let i = 4; i < 28; i += 3) px(x + i, y - 6, 2, 1, FLAGS[i % FLAGS.length]);
@@ -189,6 +214,21 @@
     px(x + 4, y - (Math.floor(t / 2500) % 4 === 0 ? 3 : 1), 1, 1, C.cat); // tail flick now and then
   };
 
+  // --- street life (unlocks as the city grows) ------------------------------
+  const car = (x, color, dir, night) => {
+    px(x, GROUND + 2, 8, 3, color); px(x + 2, GROUND, 4, 2, color); px(x + 3, GROUND + 1, 2, 1, '#BFE3FF');
+    px(x + 1, GROUND + 5, 2, 1, '#111111'); px(x + 5, GROUND + 5, 2, 1, '#111111');
+    if (night) px(dir > 0 ? x + 7 : x, GROUND + 3, 1, 1, C.shine);
+  };
+  const foodCart = (x) => {
+    px(x, GROUND - 4, 8, 3, '#E8D8B0'); px(x + 1, GROUND - 1, 2, 1, '#111111'); px(x + 5, GROUND - 1, 2, 1, '#111111');
+    px(x + 4, GROUND - 8, 1, 4, '#555555'); for (let i = 0; i < 10; i += 2) px(x - 1 + i, GROUND - 9, 2, 1, i % 4 ? '#F4F4F4' : '#E4572E');
+  };
+  const balloon = (x, y) => {
+    px(x, y + 1, 6, 4, '#E4572E'); px(x + 1, y, 4, 6, '#E4572E'); px(x + 2, y, 2, 6, '#F2C230');
+    px(x + 1, y + 6, 1, 2, '#6B4A2B'); px(x + 4, y + 6, 1, 2, '#6B4A2B'); px(x + 2, y + 8, 2, 2, '#6B4A2B');
+  };
+
   // --- builders, trucks, buses ---------------------------------------------
   const builderSprite = (x, mode, t, jump = 0) => {
     const y = GROUND - 7 - jump, step = mode === 'walk' && Math.floor(t / 200) % 2;
@@ -204,7 +244,7 @@
   };
 
   // --- state ---------------------------------------------------------------
-  let town = {}, builders = [], sunPhase = null;
+  let town = {}, builders = [], sunPhase = null, timer = null;
   const walkers = new Map();   // id -> Walker
   const doneCounts = new Map(); // id -> finished floors, to spot a fresh !done and jump
   const jumps = new Map();      // id -> jump until (ms)
@@ -217,7 +257,7 @@
       if (doneCounts.has(id) && n > doneCounts.get(id)) jumps.set(id, now + 1200);
       doneCounts.set(id, n);
     }
-    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null;
+    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null;
   };
 
   let last = performance.now();
@@ -234,13 +274,17 @@
     ctx.clearRect(0, 0, WIDTH, 270);
     // the sky opens up as the city rises: it starts just above the rooftops and grows with the tallest tower
     const skyline = Math.max(0, ...lots.map((l) => GROUND - topOf(l)));
-    if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(Math.max(0, GROUND - skyline - 30), phase, weather, t); ctx.globalAlpha = 1; }
+    const skyTop = Math.max(0, GROUND - skyline - 30);
+    if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(skyTop, phase, weather, t); ctx.globalAlpha = 1; }
+    const focus = current(timer, Date.now()); // the landmark in progress rises with the focus countdown
+    const progress = focus?.phase.kind === 'focus' ? 1 - focus.leftMs / (focus.phase.min * 60_000) : 1;
     px(0, GROUND, WIDTH, 8, C.street);
 
     // ponytail: storeys go on the shortest tower forever; past ~25 storeys it reaches the top — add a back row then.
     lots.forEach((l, i) => {
       const x = xOf(l), night = phase !== 'day';
-      l.done ? LOTS[l.kind](x, GROUND, t, night, season) : scaffoldBox(x, GROUND, l.w, l.h, t);
+      const h = l.id === FOCUS_ID ? Math.max(3, Math.round(l.h * progress)) : l.h;
+      l.done ? LOTS[l.kind](x, GROUND, t, night, season) : scaffoldBox(x, GROUND, l.w, h, t);
       l.storeys.forEach((s, k) => {
         const y = GROUND - l.h - (k + 1) * FH;
         s.done ? (STOREY[l.kind] ?? STOREY.office)(x, y, night) : scaffolding(x, y, t);
@@ -250,6 +294,10 @@
     });
     const catAt = catRoof(roofs.length, Date.now());
     if (catAt !== null) cat(xOf(roofs[catAt]) + 3, topOf(roofs[catAt]) - 2, t);
+    const life = streetLife(lots), night = phase !== 'day';
+    if (life.includes('cars')) { car(drift(3, t, WIDTH, 18), '#4C9AFF', 1, night); car(WIDTH - 8 - drift(5, t, WIDTH, 12), '#E4572E', -1, night); }
+    if (life.includes('cart')) foodCart(drift(11, t, WIDTH, 4));
+    if (life.includes('balloon') && SKY) balloon(drift(7, t, WIDTH, 3), skyTop + 14);
 
     // builders: walk to your scaffolding and hammer, otherwise wander
     const ids = new Set(builders.map((b) => b.id));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { handleCommand, newDay, type Floor, type Town } from './town.ts';
-import { POOL } from './scene/city.ts';
+import { handleCommand, newDay, stepLandmark, type Floor, type Town } from './town.ts';
+import { FOCUS_ID, landmarkFor, POOL } from './scene/city.ts';
 
 const sam = { userId: '1', userName: 'sam' };
 const open = (task: string) => ({ task, done: false });
@@ -114,5 +114,31 @@ describe('newDay', () => {
   it('clears finished floors and keeps unfinished ones, renumbered', () => {
     const town: Town = { '1': { name: 'sam', floors: [done('a'), open('b')] }, '2': { name: 'jo', floors: [done('c')] } };
     expect(newDay(town)).toEqual({ '1': { name: 'sam', floors: [open('b')] } });
+  });
+});
+
+describe('stepLandmark', () => {
+  const focus = (town: Town) => town[FOCUS_ID]?.floors ?? [];
+
+  it('a focus block starting raises a landmark under construction', () => {
+    const t = stepLandmark({}, { wasFocus: false, isFocus: true, natural: true, min: 90 }, 0, 7);
+    expect(focus(t)).toEqual([{ task: 'focus', done: false, kind: landmarkFor(90, 0), at: 7 }]);
+  });
+
+  it('finishing the block on time opens it; the next block starts another', () => {
+    const open = stepLandmark({}, { wasFocus: false, isFocus: true, natural: true, min: 25 }, 0, 1);
+    const t = stepLandmark(open, { wasFocus: true, isFocus: false, natural: true, min: 5 }, 0, 2);
+    expect(focus(t).map((f) => f.done)).toEqual([true]);
+    expect(focus(stepLandmark(t, { wasFocus: false, isFocus: true, natural: true, min: 25 }, 0, 3))).toHaveLength(2);
+  });
+
+  it('stopping or skipping mid-focus lets the unfinished landmark wither', () => {
+    const open = stepLandmark({}, { wasFocus: false, isFocus: true, natural: true, min: 25 }, 0, 1);
+    expect(focus(stepLandmark(open, { wasFocus: true, isFocus: false, natural: false, min: 5 }, 0, 2))).toEqual([]);
+  });
+
+  it('leaves the town alone when focus is not involved', () => {
+    const town: Town = {};
+    expect(stepLandmark(town, { wasFocus: false, isFocus: false, natural: true, min: 10 }, 0, 1)).toBe(town);
   });
 });
