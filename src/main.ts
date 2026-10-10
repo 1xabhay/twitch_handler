@@ -10,6 +10,8 @@ import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
 import { announce, current, handleTimer, type Timer } from './focus.ts';
+import { canRequest, nowPlaying, parseMusic } from './music.ts';
+import { spotifyClient } from './spotify.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -38,6 +40,13 @@ let viewers = await readJson<Viewers>(VIEWERS_FILE, {});
 let town = await readJson<Town>(TOWN_FILE, {});
 let timer = await readJson<Timer>(TIMER_FILE, null);
 let lastPhase = current(timer, Date.now())?.i ?? null; // survives restarts without re-announcing
+// Spotify song requests (optional): SPOTIFY_CLIENT_ID + `npm run login:spotify`. Allowlist rationale: docs/MUSIC.md.
+const spotify = process.env.SPOTIFY_CLIENT_ID ? await spotifyClient(process.env.SPOTIFY_CLIENT_ID) : null;
+const MUSIC_ALLOW = (process.env.MUSIC_ALLOW ?? 'StreamBeats,NCS').split(',').map((s) => s.trim()).filter(Boolean);
+const MUSIC_ALLOW_ALL = process.env.MUSIC_ALLOW_ALL === 'true'; // at your own DMCA risk
+const playlist = spotify && process.env.SPOTIFY_PLAYLIST ? await spotify.playlistId(process.env.SPOTIFY_PLAYLIST) : undefined;
+let song: Awaited<ReturnType<NonNullable<typeof spotify>['current']>> = null;
+const requests: Record<string, number> = {}; // userId → last request time
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
@@ -47,7 +56,7 @@ const sunPhase = () => {
   const t = SunCalc.getTimes(new Date(), lat, lon);
   return phaseFromSun(Date.now(), { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk });
 };
-const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), timer, town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), timer, song, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
@@ -65,6 +74,15 @@ setInterval(() => { // announce each phase change; the overlay counts down on it
   say(announce(c)).catch((err) => console.error('announce failed', err));
   void saveTimer(c ? timer : null);
 }, 1000);
+if (spotify) {
+  console.log(`spotify connected${playlist ? ` · playlist "${process.env.SPOTIFY_PLAYLIST}"` : ''} · allow: ${MUSIC_ALLOW_ALL ? 'ANY' : MUSIC_ALLOW.join(', ')}`);
+  setInterval(async () => { // now-playing card
+    const next = await spotify.current().catch(() => song);
+    if (next?.name !== song?.name) { song = next; push(state()); }
+  }, 10_000);
+}
+const isFollower = async (userId: string) =>
+  (await api.asUser(bot, (ctx) => ctx.channels.getChannelFollowers(channel, userId))).data.length > 0;
 let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${new Date().toISOString().slice(0, 10)}`;
 
 const listener = new EventSubWsListener({ apiClient: api });
@@ -101,12 +119,30 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   if (cmd) await say(cmd.reply);
 
   const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
+  const music = parseMusic(e.messageText);
+  if (music && spotify) await handleMusic(music, chatter, isMod).then(say, (err) => {
+    console.error('music failed', err);
+    return say(`@${chatter.userName} spotify hiccup 😵 is music playing on the stream PC?`);
+  });
   const t = handleTimer(timer, { isMod }, e.messageText, Date.now());
   if (t) {
     if (t.timer !== timer) await saveTimer(t.timer);
     await say(t.reply);
   }
 };
+async function handleMusic(m: NonNullable<ReturnType<typeof parseMusic>>, { userId, userName }: { userId: string; userName: string }, isMod: boolean) {
+  if (m.cmd === 'song') return nowPlaying(song);
+  if (m.cmd === 'skip') return isMod ? (await spotify!.next(), '⏭️ skipped') : `@${userName} only mods can skip`;
+  if (!m.query) return `@${userName} try: !sr <song or artist>`;
+  const ok = canRequest(requests, { userId, isMod, isFollower: isMod || (await isFollower(userId)) }, Date.now());
+  if (!ok.ok) return `@${userName} ${ok.reason}`;
+  const track = await spotify!.findCleared(m.query, MUSIC_ALLOW, MUSIC_ALLOW_ALL);
+  if (!track) return `@${userName} couldn't find a stream-safe match 🎧 try StreamBeats or NCS songs`;
+  await spotify!.queue(track.uri);
+  if (playlist) await spotify!.addToPlaylist(playlist, track.uri).catch((err) => console.error('playlist add failed', err));
+  requests[userId] = Date.now();
+  return `@${userName} queued 🎶 ${track.name} by ${track.artists.join(', ')}`;
+}
 listener.start();
 console.log(`listening to #${channel.name} as ${bot.name} (stream: ${streamId})`);
 console.log(`town overlay: http://localhost:${OVERLAY_PORT}/town`);

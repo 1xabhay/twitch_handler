@@ -18,7 +18,7 @@ export const startOverlay = (port: number, snapshot: () => unknown) => {
       req.on('close', () => clients.delete(res));
       return;
     }
-    const page = url.match(/^\/(town|timer)(?:\?.*)?$/)?.[1];
+    const page = url.match(/^\/(town|timer|music)(?:\?.*)?$/)?.[1];
     if (page) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       return res.end(await readFile(`public/${page}.html`));
