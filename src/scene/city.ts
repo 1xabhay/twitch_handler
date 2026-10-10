@@ -2,7 +2,7 @@
 import type { Floor, Town } from '../town.ts';
 import { hash } from './ambient.ts';
 
-export const MAX_FLOORS = 4; // keeps the city in the bottom strip; more floors become a block next door
+export const MAX_FLOORS = 10; // towers rise to ~30% of the screen; more floors become a block next door
 
 export type Lot = { row: number; col: number } & (
   | { kind: 'tower'; id: string; name: string | null; floors: Floor[]; complete: boolean }

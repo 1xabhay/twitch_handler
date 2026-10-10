@@ -158,10 +158,12 @@
     const front = lots.filter((l) => l.kind === 'tower' && l.row === 0);
 
     ctx.clearRect(0, 0, WIDTH, 270);
-    if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(0, phase, weather, t); ctx.globalAlpha = 1; }
+    // the sky opens up as the city rises: it starts just above the rooftops and grows with the tallest tower
+    const skyline = Math.max(0, ...lots.map((l) => l.row * ROW_RISE + (l.kind === 'tower' ? l.floors.length * FH : 12)));
+    if (SKY) { ctx.globalAlpha = SKY_ALPHA; sky(Math.max(0, GROUND - skyline - 30), phase, weather, t); ctx.globalAlpha = 1; }
     px(0, GROUND, WIDTH, 8, C.street);
 
-    // ponytail: rows stack ~10px each; past ~5 rows (90 towers) the city starts climbing again — add paging then.
+    // ponytail: rows stack ~10px each; past ~5 rows (90 towers) the city reaches the top — add paging then.
     for (let row = rows; row >= 0; row--) {
       ctx.globalAlpha = row ? 0.55 : 1; // distance haze
       for (const l of lots.filter((l) => l.row === row)) {
