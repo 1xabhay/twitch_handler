@@ -1,7 +1,7 @@
 import type { Chatter } from './greet.ts';
-import { FOCUS_ID, landmarkFor, pickKind, type Kind } from './scene/city.ts';
+import { FOCUS_ID, kindOfFloor, landmarkFor, pickKind, type Kind } from './scene/city.ts';
 
-export type Floor = { task: string; done: boolean; kind?: Kind; at?: number }; // kind/at: what it builds, when opened
+export type Floor = { task: string; done: boolean; kind?: Kind; at?: number; doneAt?: number }; // what it builds, when opened/finished
 export type Building = { name: string; floors: Floor[] };
 export type Town = Readonly<Record<string, Building>>;
 
@@ -27,6 +27,10 @@ export const stepLandmark = (town: Town, { wasFocus, isFocus, natural, min }: St
   if (isFocus) floors = [...floors, { task: 'focus', done: false, kind: landmarkFor(min, rand), at: now }];
   return { ...town, [FOCUS_ID]: { name: 'focus', floors } };
 };
+
+// Who finished something since `since` (for the break roll call): names once each, landmarks excluded.
+export const finishedSince = (town: Town, since: number) =>
+  Object.entries(town).filter(([id, b]) => id !== FOCUS_ID && b.floors.some((f) => (f.doneAt ?? -1) >= since)).map(([, b]) => b.name);
 
 export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string, rand = Math.random(), now = Date.now()) => {
   const [, cmd, rest = ''] = text.match(/^!(\w+)\s*(.*)$/s) ?? [];
@@ -55,10 +59,15 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
       const ks = words.length ? words.map((w) => (/^\d+$/.test(w) ? Number(w) : null)) : [openNums[0]!];
       const bad = words.filter((_, i) => !isOpen(ks[i] ?? null));
       if (bad.length) return keep(`no open floor ${bad.join(' ')}. try !tasks`);
-      const next = floors.map((f, i) => (ks.includes(i + 1) ? { ...f, done: true } : f));
+      const next = floors.map((f, i) => (ks.includes(i + 1) ? { ...f, done: true, doneAt: now } : f));
       return save(next, ks.length === 1
         ? `floor ${ks[0]} done: "${floors[ks[0]! - 1]!.task}"! lights on 💡`
         : `floors ${ks.join(', ')} done! lights on 💡`);
+    }
+    case 'where': {
+      if (!floors.length) return keep(`nothing built yet. !task <thing> to start 🏗️`);
+      const list = floors.map((f) => `${kindOfFloor(userId, f)}${f.done ? '' : ' (going up)'}`).join(', ');
+      return keep(`👇 look for your ${list} — marked on screen for a few seconds`);
     }
     case 'help':
       return keep(`🏙️ !task <thing> puts up a building under scaffolding · !done N lights it up · !tasks lists yours · the streamer's focus blocks build landmarks`);

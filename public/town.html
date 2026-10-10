@@ -70,6 +70,11 @@
   };
   // "construction complete", silent and ~1.5 s: scaffold falls away bottom-up, then a glint sweeps the facade
   const reveals = new Map(); // piece key -> when it was finished (ms)
+  const wheres = new Map();  // viewer id -> until (ms): !where points at their buildings
+  const pointer = (cx, y, t) => { // small arrow bobbing gently above a building
+    const b = y + (Math.floor(t / 600) % 2);
+    px(cx, b - 3, 1, 3, '#FEE761'); px(cx - 2, b, 5, 1, '#FEE761'); px(cx - 1, b + 1, 3, 1, '#FEE761'); px(cx, b + 2, 1, 1, '#FEE761');
+  };
   const reveal = (k, x, y, w, h, t, seed) => {
     if (!reveals.has(k)) return;
     const p = Date.now() - reveals.get(k);
@@ -368,6 +373,10 @@
       if (i % 4 === 3) lamp(x + l.w + 2, night); // street furniture in some gaps, not a picket fence
       else if (i % 3 === 1) tree(x + l.w, season);
     });
+    for (const [id, until] of wheres) {
+      if (Date.now() > until) { wheres.delete(id); continue; }
+      for (const l of lots) if (l.id === id || l.storeys.some((s) => s.id === id)) pointer(xOf(l) + Math.floor(l.w / 2), topOf(l) - 9, t);
+    }
     const catAt = catRoof(roofs.length, Date.now());
     if (catAt !== null) cat(xOf(roofs[catAt]) + 3, topOf(roofs[catAt]) - 2, t);
     const life = streetLife(lots), night = phase !== 'day';
@@ -416,6 +425,7 @@
     if (msg.boot && boot && msg.boot !== boot) return location.reload(); // bot restarted, maybe with new code
     boot = msg.boot ?? boot;
     if (msg.type === 'state') onState(msg, now);
+    if (msg.type === 'where') wheres.set(msg.id, Date.now() + 8000);
     if (msg.type === 'follow') visitors.push({ kind: 'truck', x: -20, name: msg.name });
     if (msg.type === 'raid') visitors.push({ kind: 'bus', x: -30, name: msg.from, raiders: msg.viewers, phase: 'arrive' });
   };

@@ -25,6 +25,8 @@ export const LANDMARKS = {
 export const landmarkFor = (min: number, r: number): Kind =>
   pick(min >= 80 ? LANDMARKS.grand : min >= 40 ? LANDMARKS.civic : LANDMARKS.small, r);
 
+export const kindOfFloor = (id: string, f: Floor): Kind => f.kind ?? POOL[hash(`${id}:${f.task}`) % POOL.length]!; // older floors had no kind
+
 export type Storey = { id: string; done: boolean; at: number };
 export type Lot = { kind: Kind; id: string; done: boolean; at: number; x: number; w: number; h: number; storeys: Storey[] };
 
@@ -35,7 +37,7 @@ export const cityLayout = (town: Town, width: number): Lot[] => {
   const items = Object.entries(town)
     .flatMap(([id, b]) => b.floors.map((f: Floor, i) => ({
       id, done: f.done,
-      kind: f.kind ?? POOL[hash(`${id}:${f.task}`) % POOL.length]!, // floors saved before kinds existed
+      kind: kindOfFloor(id, f),
       at: f.at ?? i,
     })))
     .sort((a, b) => a.at - b.at);

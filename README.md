@@ -25,6 +25,7 @@ Inspired by [PomodoroWorld](https://pomodoroworld.com) — if you want a polishe
 | `!done 2` / `!done 1 3` / `!done` | anyone | finish floor 2 / several at once / your only open floor |
 | `!tasks` | anyone | list your open tasks |
 | `!help` | anyone | how the city works |
+| `!where` | anyone | arrows point at your buildings for a few seconds |
 | `!remove 2` | anyone | drop an unfinished floor (finished floors stay) |
 | `!newday` | mods | fresh city: archive to `data/town-<date>.json`, keep unfinished floors |
 | `!leave` / `!join` | anyone | hide / show your builder |

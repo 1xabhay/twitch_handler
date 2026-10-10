@@ -48,8 +48,8 @@ Three reviews of the city overlay on 2026-10-10, each written from one point of 
   - [x] Max 10 open tasks per viewer.
   - [x] Credit PomodoroWorld in the README.
 - **P1:**
-  - Break roll call: on a break, builders gather in a square and the bot names who finished something. A check-in ritual, not a leaderboard.
-  - `!where`: briefly highlights your buildings (recognition without names on screen).
+  - [x] Break roll call: the break message names who finished something during the focus block. (Builders gathering in a square: later.)
+  - [x] `!where`: arrows point at your buildings for 8 s, and the reply lists them.
   - `!paint <colour>`: viewers choose their roof colour.
   - Persistent lots for regulars. This conflicts with the blank-canvas daily reset, so the streamer decides.
 - **Design, P1:**

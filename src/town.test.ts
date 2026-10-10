@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { handleCommand, newDay, stepLandmark, type Floor, type Town } from './town.ts';
+import { finishedSince, handleCommand, newDay, stepLandmark, type Floor, type Town } from './town.ts';
 import { FOCUS_ID, landmarkFor, POOL } from './scene/city.ts';
 
 const sam = { userId: '1', userName: 'sam' };
 const open = (task: string) => ({ task, done: false });
 const done = (task: string) => ({ task, done: true });
+const plain = (fs?: Floor[]) => fs?.map(({ task, done }) => ({ task, done })); // ignore timestamps
 const samWith = (...floors: Floor[]): Town => ({ '1': { name: 'sam', floors } });
 
 describe('handleCommand', () => {
@@ -47,13 +48,13 @@ describe('handleCommand', () => {
     it('!done N finishes only that floor', () => {
       const town = samWith(open('a'), open('b'), open('c'));
       const r = handleCommand(town, sam, '!done 2');
-      expect(r?.town['1']?.floors).toEqual([open('a'), done('b'), open('c')]);
+      expect(plain(r?.town['1']?.floors)).toEqual([open('a'), done('b'), open('c')]);
       expect(town['1']?.floors[1]).toEqual(open('b')); // previous state untouched
     });
 
     it('bare !done finishes the only open floor', () => {
       const r = handleCommand(samWith(done('a'), open('b')), sam, '!done');
-      expect(r?.town['1']?.floors).toEqual([done('a'), done('b')]);
+      expect(plain(r?.town['1']?.floors)).toEqual([done('a'), done('b')]);
     });
 
     it('bare !done with several open floors asks which, listing the numbers', () => {
@@ -72,7 +73,7 @@ describe('handleCommand', () => {
 
     it('!done 1 3 finishes several floors at once', () => {
       const r = handleCommand(samWith(open('a'), open('b'), open('c')), sam, '!done 1 3');
-      expect(r?.town['1']?.floors).toEqual([done('a'), open('b'), done('c')]);
+      expect(plain(r?.town['1']?.floors)).toEqual([done('a'), open('b'), done('c')]);
       expect(r?.reply).toMatch(/1.*3/);
     });
 
@@ -173,5 +174,29 @@ describe('onboarding and limits', () => {
     const r = handleCommand(town, sam, '!task one more');
     expect(r?.town).toBe(town);
     expect(r?.reply).toContain('!done');
+  });
+});
+
+describe('!where and the break roll call', () => {
+  it('!done stamps when it was finished', () => {
+    const r = handleCommand(samWith(open('a')), sam, '!done', 0, 99);
+    expect(r?.town['1']?.floors[0]).toEqual({ ...done('a'), doneAt: 99 });
+  });
+
+  it('!where tells you what to look for and changes nothing', () => {
+    const town = samWith({ ...open('a'), kind: 'shop' }, { ...done('b'), kind: 'arena' });
+    const r = handleCommand(town, sam, '!where');
+    expect(r?.town).toBe(town);
+    expect(r?.reply).toContain('shop');
+    expect(r?.reply).toContain('arena');
+  });
+
+  it('finishedSince names everyone who finished something in the window, once each, never the landmarks', () => {
+    const town: Town = {
+      '1': { name: 'sam', floors: [{ ...done('a'), doneAt: 50 }, { ...done('b'), doneAt: 60 }] },
+      '2': { name: 'jo', floors: [{ ...done('c'), doneAt: 10 }] },
+      [FOCUS_ID]: { name: 'focus', floors: [{ ...done('l'), doneAt: 70 }] },
+    };
+    expect(finishedSince(town, 40)).toEqual(['sam']);
   });
 });

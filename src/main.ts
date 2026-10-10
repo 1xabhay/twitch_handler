@@ -5,7 +5,7 @@ import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import type { EventSubChannelChatMessageEvent } from '@twurple/eventsub-base';
 import { greet, type Viewers } from './greet.ts';
-import { handleCommand, newDay, stepLandmark, type Town } from './town.ts';
+import { finishedSince, handleCommand, newDay, stepLandmark, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
@@ -115,8 +115,11 @@ setInterval(() => { // announce each phase change; the overlay counts down on it
   if ((c?.i ?? null) === lastPhase) return;
   const was = lastPhase === null ? null : PRESETS[timer.preset][lastPhase]!;
   lastPhase = c?.i ?? null; // claim the change now: the landmark write below is async
+  // break roll call: who finished something during the focus block that just ended (a check-in, not a leaderboard)
+  const finished = was?.kind === 'focus' ? finishedSince(town, Date.now() - was.min * 60_000) : [];
   void landmarkStep(was, c, true).then((opened) => {
-    say(announce(c) + (opened ? ` · a new ${opened} just opened in town 🏛️` : '')).catch((err) => console.error('announce failed', err));
+    const extra = (opened ? ` · a new ${opened} just opened in town 🏛️` : '') + (finished.length ? ` · 🎉 finished this block: ${finished.map((n) => `@${n}`).join(' ')}` : '');
+    say(announce(c) + extra).catch((err) => console.error('announce failed', err));
   });
   void saveTimer(c ? timer : null);
 }, 1000);
@@ -177,6 +180,7 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   crowd = handleCrowd(crowd, chatter, e.messageText, Date.now());
   const word = e.messageText.trim().toLowerCase();
   if (word === '!join') await say(`@${chatter.userName} grabs a hard hat 👷`);
+  if (word === '!where') push({ type: 'where', id: chatter.userId }); // overlay points at their buildings
   if (word === '!leave') await say(`@${chatter.userName} clocks out 👋 (!join to come back)`);
 
   saveGym(earnChat(gym, chatter.userId, Date.now()));
