@@ -1,26 +1,48 @@
 import type { Chatter } from './greet.ts';
 
-export type Building = { name: string; floors: number; task: string | null };
+export type Floor = { task: string; done: boolean };
+export type Building = { name: string; floors: Floor[] };
 export type Town = Readonly<Record<string, Building>>;
 
 const MAX_TASK = 60;
 
-// !task <text> lights a window in your building; !done finishes it and adds a floor.
+// Each !task adds a floor (numbered from 1 at the bottom). Open floors are under construction;
+// !done N finishes one, !remove N drops an open one, !tasks lists what's open.
 export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string) => {
   const [, cmd, rest = ''] = text.match(/^!(\w+)\s*(.*)$/s) ?? [];
-  const mine = town[userId] ?? { name: userName, floors: 0, task: null };
-  const save = (b: Building): Town => ({ ...town, [userId]: { ...b, name: userName } });
+  const floors = town[userId]?.floors ?? [];
+  const at = (s: string) => `@${userName} ${s}`;
+  const keep = (reply: string) => ({ town, reply: at(reply) });
+  const save = (next: Floor[], reply: string) =>
+    ({ town: { ...town, [userId]: { name: userName, floors: next } } as Town, reply: at(reply) });
+
+  const openNums = floors.flatMap((f, i) => (f.done ? [] : [i + 1]));
+  const n = /^\d+$/.test(rest.trim()) ? Number(rest.trim()) : null;
+  const isOpen = (k: number | null): k is number => k !== null && openNums.includes(k);
 
   switch (cmd?.toLowerCase()) {
     case 'task': {
       const task = rest.trim().slice(0, MAX_TASK);
-      if (!task) return { town, reply: `@${userName} try: !task <what you're working on> 🔨` };
-      return { town: save({ ...mine, task }), reply: `@${userName} lights a window: "${task}" 💡` };
+      if (!task) return keep(`try: !task <what you're working on> 🔨`);
+      return save([...floors, { task, done: false }], `floor ${floors.length + 1} under construction: "${task}" 🏗️`);
     }
     case 'done': {
-      if (!mine.task) return { town, reply: `@${userName} nothing to finish yet. !task <thing> first 👀` };
-      const floors = mine.floors + 1;
-      return { town: save({ ...mine, floors, task: null }), reply: `@${userName} finished "${mine.task}"! building's now ${floors} floor${floors === 1 ? '' : 's'} tall 🏢` };
+      const k = rest.trim() ? n : openNums.length === 1 ? openNums[0]! : null;
+      if (!openNums.length) return keep(`nothing under construction. !task <thing> first 👀`);
+      if (!rest.trim() && openNums.length > 1) return keep(`which one? ${openNums.map((i) => `!done ${i}`).join(' / ')}`);
+      if (!isOpen(k)) return keep(`no open floor ${rest.trim()}. try !tasks`);
+      const next = floors.map((f, i) => (i + 1 === k ? { ...f, done: true } : f));
+      const all = next.every((f) => f.done);
+      return save(next, `floor ${k} done: "${floors[k - 1]!.task}"! lights on 💡${all ? ' building complete 🚩' : ''}`);
+    }
+    case 'tasks':
+      return openNums.length
+        ? keep(`🏗️ ${openNums.map((i) => `${i}: ${floors[i - 1]!.task}`).join(' · ')}`)
+        : keep(`no open floors. !task <thing> to start one`);
+    case 'remove': {
+      if (n !== null && floors[n - 1]?.done) return keep(`floor ${n} is finished, it stays forever 🏢`);
+      if (!isOpen(n)) return keep(`try: !remove <floor number>. !tasks shows them`);
+      return save(floors.filter((_, i) => i + 1 !== n), `floor ${n} removed. floors above slide down 🧱`);
     }
     default:
       return null;

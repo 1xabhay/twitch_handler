@@ -36,6 +36,7 @@ Twitch handler app. Intended to be open-sourced.
 
 ## Ledger
 <!-- newest first: YYYY-MM-DD — what changed / decided, and why -->
+- 2026-10-10 — Town v2: floors are numbered tasks (`!task`, `!done N`, `!tasks`, `!remove N`, no limit). Wordless states from research: scaffolding+hazard band = in progress, lit windows = done, flag+roof garden = building complete. Shape not colour carries state (colorblind-safe). Added EventSub/chat logging after a silent no-events stream.
 - 2026-10-09 — Streaming setup done: OBS 32 + stream key, GoPro HERO11 via free official GoPro Webcam app (video only), Mac mic + RNNoise/Compressor, town overlay live in OBS. Captured in docs/SETUP.md.
 - 2026-10-09 — Pixel town v1: `!task`/`!done` (one building per viewer, floors = tasks done, lit window = active task). Overlay at localhost:3001/town via SSE, bound to 127.0.0.1. Chosen over constellation/mural/voyage: builds on task list, fits pixel style.
 - 2026-10-09 — First live run: greeting works in real chat (#halfopeneyes). Bot posts as the channel owner (no bot account yet). Offline "stream" = calendar day.

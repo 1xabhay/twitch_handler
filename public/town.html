@@ -9,33 +9,57 @@
 <canvas width="480" height="270"></canvas>
 <script>
   const ctx = document.querySelector('canvas').getContext('2d');
-  const GROUND = 262, W = 16, GAP = 4, FLOOR = 8;
-  const BODY = ['#8b6d9c', '#4b7f8c', '#a0705a', '#6d8b5a', '#5a6d9c', '#9c8b5a'];
+  const GROUND = 262, W = 16, GAP = 6, FH = 8;
+  const C = {
+    wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
+    hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
+  };
+  const FLAGS = ['#E4572E', '#4C9AFF', '#F4F4F4', '#C77DFF', '#2EC4B6', '#FF6F91'];
   const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const px = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
 
-  const draw = (town) => {
+  // Under construction: empty shell, scaffold poles + brace, hazard band, slow blinking beacon.
+  const building = (x, y, t) => {
+    px(x, y, W, FH, C.dark);
+    px(x + 1, y, 1, FH, C.wall); px(x + 14, y, 1, FH, C.wall); px(x + 1, y + 7, 14, 1, C.wall);
+    for (let i = 0; i < W; i += 4) { px(x + i, y, 2, 1, C.hazard); px(x + i + 2, y, 2, 1, C.hazardDark); }
+    px(x, y, 1, FH, C.scaffold); px(x + 15, y, 1, FH, C.scaffold);
+    for (let j = 0; j < 6; j++) px(x + 1 + j, y + 6 - j, 1, 1, C.scaffold);
+    if (Math.floor(t / 750) % 2 === 0) px(x + 15, y - 1, 1, 1, C.beacon);
+  };
+
+  // Done: solid wall, lit windows.
+  const finished = (x, y) => {
+    px(x, y, W, FH, C.wall);
+    px(x, y + 7, W, 1, C.slab);
+    for (const wx of [3, 7, 11]) { px(x + wx, y + 2, 2, 3, C.lit); px(x + wx, y + 2, 1, 1, C.shine); }
+  };
+
+  // Building complete: roof cap, a little garden, the owner's flag fluttering.
+  const roof = (x, y, name, t) => {
+    px(x, y - 2, W, 2, C.slab);
+    for (const gx of [2, 3, 5]) px(x + gx, y - 3, 1, 1, C.garden);
+    px(x + 11, y - 6, 1, 4, C.slab);
+    const flag = FLAGS[hash(name) % FLAGS.length];
+    if (Math.floor(t / 500) % 2 === 0) px(x + 12, y - 6, 3, 2, flag);
+    else { px(x + 12, y - 6, 2, 2, flag); px(x + 14, y - 5, 1, 1, flag); }
+  };
+
+  let town = {};
+  const draw = (t) => {
     ctx.clearRect(0, 0, 480, 270);
-    ctx.fillStyle = '#3b3b4f';
-    ctx.fillRect(0, GROUND, 480, 8);
-    // ponytail: single row fits ~24 buildings; wrap into rows/streets when the town outgrows it.
-    Object.values(town).forEach((b, i) => {
-      const x = 4 + i * (W + GAP), h = (b.floors + 1) * FLOOR, top = GROUND - h;
-      ctx.fillStyle = BODY[hash(b.name) % BODY.length];
-      ctx.fillRect(x, top, W, h);
-      ctx.fillStyle = '#2a2a3a';
-      ctx.fillRect(x - 1, top - 2, W + 2, 2); // roof
-      for (let f = 0; f <= b.floors; f++) {
-        const lit = b.task && f === b.floors; // top floor glows while working
-        ctx.fillStyle = lit ? '#ffd966' : '#2a2a3a';
-        const y = GROUND - (f + 1) * FLOOR + 2;
-        ctx.fillRect(x + 3, y, 3, 3);
-        ctx.fillRect(x + 10, y, 3, 3);
-      }
+    px(0, GROUND, 480, 8, '#3b3b4f');
+    // ponytail: one row of ~21 buildings, ~30 floors tall; wrap into streets/scroll when the town outgrows it.
+    Object.values(town).filter((b) => b.floors.length).forEach((b, i) => {
+      const x = 4 + i * (W + GAP);
+      b.floors.forEach((f, k) => (f.done ? finished : building)(x, GROUND - (k + 1) * FH, t));
+      if (b.floors.every((f) => f.done)) roof(x, GROUND - b.floors.length * FH, b.name, t);
       ctx.fillStyle = '#ffffff';
       ctx.font = '5px monospace';
-      ctx.fillText(b.name.slice(0, 5), x, GROUND + 7);
+      ctx.fillText(b.name.slice(0, 6), x, GROUND + 7);
     });
   };
 
-  new EventSource('/events').onmessage = (e) => draw(JSON.parse(e.data));
+  new EventSource('/events').onmessage = (e) => { town = JSON.parse(e.data); draw(performance.now()); };
+  setInterval(() => draw(performance.now()), 250); // calm: ~4 redraws/s, blink at 0.67 Hz
 </script>

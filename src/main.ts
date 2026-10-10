@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { RefreshingAuthProvider } from '@twurple/auth';
 import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
+import type { EventSubChannelChatMessageEvent } from '@twurple/eventsub-base';
 import { greet, type Viewers } from './greet.ts';
 import { handleCommand, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
@@ -32,8 +33,13 @@ const pushTown = startOverlay(OVERLAY_PORT, () => town);
 let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${new Date().toISOString().slice(0, 10)}`;
 
 const listener = new EventSubWsListener({ apiClient: api });
-listener.onStreamOnline(channel, (e) => { streamId = e.id; });
-listener.onChannelChatMessage(channel, bot, async (e) => {
+listener.onSubscriptionCreateFailure((sub, err) => console.error(`subscribe failed: ${sub.id}`, err));
+listener.onUserSocketDisconnect((_user, err) => console.error('eventsub disconnected', err ?? ''));
+listener.onStreamOnline(channel, (e) => { streamId = e.id; console.log(`live! stream ${streamId}`); });
+listener.onChannelChatMessage(channel, bot, (e) => handleChat(e).catch((err) => console.error('chat handler failed', err)));
+
+const handleChat = async (e: EventSubChannelChatMessageEvent) => {
+  console.log(`chat <${e.chatterName}> ${e.messageText}`);
   const chatter = { userId: e.chatterId, userName: e.chatterDisplayName };
   const say = (text: string) => api.asUser(bot, (ctx) => ctx.chat.sendChatMessage(channel, text));
 
@@ -54,7 +60,7 @@ listener.onChannelChatMessage(channel, bot, async (e) => {
     }
     await say(cmd.reply);
   }
-});
+};
 listener.start();
 console.log(`listening to #${channel.name} as ${bot.name} (stream: ${streamId})`);
 console.log(`town overlay: http://localhost:${OVERLAY_PORT}/town`);
