@@ -9,6 +9,7 @@ import { handleCommand, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
+import { announce, current, handleTimer, type Timer } from './focus.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -16,6 +17,7 @@ if (!clientId || !clientSecret || !TWITCH_CHANNEL || !TWITCH_BOT) throw new Erro
 
 const VIEWERS_FILE = 'data/viewers.json';
 const TOWN_FILE = 'data/town.json';
+const TIMER_FILE = 'data/timer.json';
 const OVERLAY_PORT = 3001;
 const readJson = async <T>(path: string, fallback: T): Promise<T> =>
   readFile(path, 'utf8').then(JSON.parse, () => fallback);
@@ -34,6 +36,8 @@ if (!channel || !bot) throw new Error('TWITCH_CHANNEL or TWITCH_BOT not found on
 await mkdir('data', { recursive: true });
 let viewers = await readJson<Viewers>(VIEWERS_FILE, {});
 let town = await readJson<Town>(TOWN_FILE, {});
+let timer = await readJson<Timer>(TIMER_FILE, null);
+let lastPhase = current(timer, Date.now())?.i ?? null; // survives restarts without re-announcing
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
@@ -43,9 +47,24 @@ const sunPhase = () => {
   const t = SunCalc.getTimes(new Date(), lat, lon);
   return phaseFromSun(Date.now(), { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk });
 };
-const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), timer, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
+// Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
+const say = (text: string) => api.chat.sendChatMessageAsApp(bot, channel, text);
+const saveTimer = (next: Timer) => {
+  timer = next;
+  lastPhase = current(timer, Date.now())?.i ?? null;
+  push(state());
+  return writeFile(TIMER_FILE, JSON.stringify(timer));
+};
+setInterval(() => { // announce each phase change; the overlay counts down on its own
+  if (!timer) return;
+  const c = current(timer, Date.now());
+  if ((c?.i ?? null) === lastPhase) return;
+  say(announce(c)).catch((err) => console.error('announce failed', err));
+  void saveTimer(c ? timer : null);
+}, 1000);
 let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${new Date().toISOString().slice(0, 10)}`;
 
 const listener = new EventSubWsListener({ apiClient: api });
@@ -60,8 +79,6 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   console.log(`chat <${e.chatterName}> ${e.messageText}`);
   if (e.chatterId === bot.id && bot.id !== channel.id) return; // separate bot account: ignore our own messages
   const chatter = { userId: e.chatterId, userName: e.chatterDisplayName };
-  // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
-  const say = (text: string) => api.chat.sendChatMessageAsApp(bot, channel, text);
 
   const hello = greet(viewers, chatter, streamId);
   if (hello.message) {
@@ -82,6 +99,13 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   }
   push(state());
   if (cmd) await say(cmd.reply);
+
+  const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
+  const t = handleTimer(timer, { isMod }, e.messageText, Date.now());
+  if (t) {
+    if (t.timer !== timer) await saveTimer(t.timer);
+    await say(t.reply);
+  }
 };
 listener.start();
 console.log(`listening to #${channel.name} as ${bot.name} (stream: ${streamId})`);
