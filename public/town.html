@@ -194,8 +194,11 @@
     requestAnimationFrame(frame);
   };
 
+  let boot = null;
   new EventSource('/events').onmessage = (e) => {
     const msg = JSON.parse(e.data), now = Date.now();
+    if (msg.boot && boot && msg.boot !== boot) return location.reload(); // bot restarted, maybe with new code
+    boot = msg.boot ?? boot;
     if (msg.type === 'state') onState(msg, now);
     if (msg.type === 'follow') visitors.push({ kind: 'truck', x: -20, name: msg.name });
     if (msg.type === 'raid') visitors.push({ kind: 'bus', x: -30, name: msg.from, raiders: msg.viewers, phase: 'arrive' });

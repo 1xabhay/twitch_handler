@@ -33,7 +33,8 @@ await mkdir('data', { recursive: true });
 let viewers = await readJson<Viewers>(VIEWERS_FILE, {});
 let town = await readJson<Town>(TOWN_FILE, {});
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
-const state = () => ({ type: 'state', town, builders: activeBuilders(crowd, Date.now()) });
+const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
+const state = () => ({ type: 'state', boot: BOOT, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${new Date().toISOString().slice(0, 10)}`;
