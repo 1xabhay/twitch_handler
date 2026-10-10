@@ -103,9 +103,20 @@ let streamId = (await api.streams.getStreamByUserId(channel))?.id ?? `offline-${
 const listener = new EventSubWsListener({ apiClient: api });
 listener.onSubscriptionCreateFailure((sub, err) => console.error(`subscribe failed: ${sub.id}`, err));
 listener.onUserSocketDisconnect((_user, err) => console.error('eventsub disconnected', err ?? ''));
+// Archive the town, then keep only unfinished floors. auto (go-live) runs once per day, so a mid-day restart keeps the city.
+const startNewDay = async (auto: boolean) => {
+  const day = `data/town-${new Date().toLocaleDateString('en-CA')}`, body = JSON.stringify(town, null, 2);
+  const first = await writeFile(`${day}.json`, body, { flag: 'wx' }).then(() => true, () => false);
+  if (!first && auto) return;
+  if (!first) await writeFile(`${day}-${Date.now()}.json`, body); // second manual reset today: never overwrite an archive
+  town = newDay(town);
+  await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
+  push(state());
+};
 listener.onStreamOnline(channel, async (e) => {
   streamId = e.id;
   console.log(`live! stream ${streamId}`);
+  await startNewDay(true).catch((err) => console.error('new day failed', err));
   // Optional: DISCORD_WEBHOOK (Server Settings → Integrations → Webhooks) gets a "we're live" post.
   if (!process.env.DISCORD_WEBHOOK) return;
   const title = (await api.channels.getChannelInfoById(channel))?.title ?? '';
@@ -142,10 +153,7 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   saveGym(earnChat(gym, chatter.userId, Date.now()));
   const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
   if (word === '!newday' && isMod) {
-    await writeFile(`data/town-${new Date().toLocaleDateString('en-CA')}.json`, JSON.stringify(town, null, 2)); // archive, never lose a day
-    town = newDay(town);
-    await writeFile(TOWN_FILE, JSON.stringify(town, null, 2));
-    push(state());
+    await startNewDay(false);
     await say('🌅 new day, fresh lots! finished floors are archived, unfinished ones carried over. !task to start building');
   }
   const doneBefore = town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0;

@@ -6,7 +6,7 @@ Runs on your own computer. No server, no subscription.
 
 ## Features
 
-- **Pixel town overlay.** Every viewer gets a building. `!task` adds a floor under scaffolding; `!done` lights its windows; a flag goes up when everything is finished. Buildings top out at 4 floors and spread into a block next door, then into skyline rows behind; empty lots are houses and parks. Mods run `!newday` for a fresh city (finished floors archived, unfinished ones carry over).
+- **Pixel town overlay.** Every viewer gets a building. `!task` adds a floor under scaffolding; `!done` lights its windows; a flag goes up when everything is finished. Buildings top out at 4 floors and spread into a block next door, then into skyline rows behind; empty lots are houses and parks. The city starts fresh on your first go-live of the day (or mods run `!newday`) (finished floors archived, unfinished ones carry over).
 - **Builders.** Anyone who chatted in the last 30 minutes walks the street and hammers at their own scaffolding (`!leave` / `!join` to opt out/in).
 - **Living scene.** Sky follows the real sunrise/sunset for your city, plus stars, moon, clouds, birds, seasonal trees, street lamps, daily rain/snow and a roof cat. Follows send a delivery truck; raids arrive by bus.
 - **Viewer greetings.** First-time chatters and returning regulars get different (playful) welcomes, once per stream.
