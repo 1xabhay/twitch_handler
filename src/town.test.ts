@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { finishedSince, handleCommand, newDay, stepLandmark, type Floor, type Town } from './town.ts';
+import { builtToday, finishedSince, handleCommand, newDay, stepLandmark, type Floor, type Town } from './town.ts';
 import { FOCUS_ID, landmarkFor, POOL } from './scene/city.ts';
 
 const sam = { userId: '1', userName: 'sam' };
@@ -177,6 +177,35 @@ describe('onboarding and limits', () => {
   });
 });
 
+describe('replies name the building', () => {
+  it('!task uses the right article', () => {
+    const apt = POOL.indexOf('apartment') / POOL.length;
+    expect(handleCommand({}, sam, '!task read', apt)?.reply).toContain('an apartment is going up');
+  });
+
+  it('!done names what was built', () => {
+    const r = handleCommand(samWith({ ...open('essay'), kind: 'school' }), sam, '!done 1');
+    expect(r?.reply).toContain('school');
+    expect(r?.reply).toContain('essay');
+  });
+
+  it('!done of several names each building', () => {
+    const r = handleCommand(samWith({ ...open('a'), kind: 'shop' }, { ...open('b'), kind: 'pool' }), sam, '!done 1 2');
+    expect(r?.reply).toContain('shop');
+    expect(r?.reply).toContain('pool');
+  });
+
+  it('!remove and !cancel name what was abandoned', () => {
+    const town = samWith({ ...open('essay'), kind: 'arena' });
+    for (const cmd of ['!remove 1', '!cancel 1']) {
+      const r = handleCommand(town, sam, cmd);
+      expect(r?.town['1']?.floors).toEqual([]);
+      expect(r?.reply).toContain('arena');
+      expect(r?.reply).toContain('abandoned');
+    }
+  });
+});
+
 describe('!where and the break roll call', () => {
   it('!done stamps when it was finished', () => {
     const r = handleCommand(samWith(open('a')), sam, '!done', 0, 99);
@@ -198,5 +227,30 @@ describe('!where and the break roll call', () => {
       [FOCUS_ID]: { name: 'focus', floors: [{ ...done('l'), doneAt: 70 }] },
     };
     expect(finishedSince(town, 40)).toEqual(['sam']);
+  });
+});
+
+describe('reply wording (skyline city)', () => {
+  const all = (town: Town) => ['!task x', '!done 1', '!done 9', '!done', '!tasks', '!where', '!help', '!cancel 1', '!cancel 9', '!cancel']
+    .map((c) => handleCommand(town, sam, c, POOL.indexOf('watertower') / POOL.length)!.reply);
+
+  it('never talks about floors or streets, and has no em dashes', () => {
+    for (const town of [{}, samWith({ ...open('a'), kind: 'watertower' }), samWith({ ...done('a'), kind: 'ferris' }, open('b'))])
+      for (const r of all(town)) expect(r).not.toMatch(/floor|street|—/i);
+  });
+
+  it('numbers tasks as #N and spells building names out', () => {
+    const r = handleCommand(samWith(done('a')), sam, '!task tea', POOL.indexOf('watertower') / POOL.length);
+    expect(r?.reply).toContain('#2');
+    expect(r?.reply).toContain('a water tower');
+    expect(handleCommand(samWith(open('a'), open('b')), sam, '!tasks')?.reply).toContain('#1 a · #2 b');
+    expect(handleCommand(samWith({ ...open('a'), kind: 'clocktower' }), sam, '!done 1')?.reply).toContain('#1 done');
+  });
+});
+
+describe('builtToday', () => {
+  it('counts finished buildings and landmarks', () => {
+    const town: Town = { ...samWith(done('a'), open('b'), done('c')), [FOCUS_ID]: { name: 'focus', floors: [done('l'), open('m')] } };
+    expect(builtToday(town)).toEqual({ built: 2, landmarks: 1 });
   });
 });

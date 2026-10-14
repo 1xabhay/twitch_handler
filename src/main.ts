@@ -5,11 +5,11 @@ import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import type { EventSubChannelChatMessageEvent } from '@twurple/eventsub-base';
 import { greet, type Viewers } from './greet.ts';
-import { finishedSince, handleCommand, newDay, stepLandmark, type Town } from './town.ts';
+import { builtToday, finishedSince, handleCommand, newDay, stepLandmark, type Town } from './town.ts';
 import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
-import { FOCUS_ID } from './scene/city.ts';
+import { FOCUS_ID, nameOf } from './scene/city.ts';
 import { announce, current, handleTimer, PRESETS, type Current, type Timer } from './focus.ts';
 import { canRequest, nowPlaying, parseMusic } from './music.ts';
 import { spotifyClient } from './spotify.ts';
@@ -118,8 +118,7 @@ setInterval(() => { // announce each phase change; the overlay counts down on it
   // break roll call: who finished something during the focus block that just ended (a check-in, not a leaderboard)
   const finished = was?.kind === 'focus' ? finishedSince(town, Date.now() - was.min * 60_000) : [];
   void landmarkStep(was, c, true).then((opened) => {
-    const extra = (opened ? ` · a new ${opened} just opened in town 🏛️` : '') + (finished.length ? ` · 🎉 finished this block: ${finished.map((n) => `@${n}`).join(' ')}` : '');
-    say(announce(c) + extra).catch((err) => console.error('announce failed', err));
+    say(announce(c, { ...builtToday(town), finished, opened: opened && nameOf(opened) })).catch((err) => console.error('announce failed', err));
   });
   void saveTimer(c ? timer : null);
 }, 1000);
@@ -187,7 +186,7 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
   if (word === '!newday' && isMod) {
     await startNewDay(false);
-    await say('🌅 new day, fresh lots! finished floors are archived, unfinished ones carried over. !task to start building');
+    await say('🌅 new day, clear skyline! yesterday\'s city is archived, unfinished buildings carried over. !task to start building');
   }
   const doneBefore = town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0;
   const cmd = handleCommand(town, chatter, e.messageText);

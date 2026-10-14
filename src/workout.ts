@@ -67,7 +67,7 @@ export const handleWorkout = (g: Gym, { userId, userName }: Chatter, isMod: bool
   if (!arg) return keep(`${status(g)} · you have ${mine} 🧱 · !workout 20 to chip in`);
   if (!g.enabled) return keep('the workout meter is paused right now 😮‍💨');
   const n = Math.min(Number.parseInt(arg, 10) || 0, mine);
-  if (n <= 0) return keep(`you have ${mine} 🧱. chat, hang out and finish !task floors to earn more`);
+  if (n <= 0) return keep(`you have ${mine} 🧱. chat, hang out and finish !task buildings to earn more`);
   const next = pour({ ...g, wallet: add(g.wallet, userId, -n) }, userName, n);
   const filled = next.pending.length - g.pending.length;
   return { gym: next, reply: `@${userName} poured ${n} 🧱${filled ? ` · tier filled! queued for the next break 💪` : ''} · ${status(next)}` };

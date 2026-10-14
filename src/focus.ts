@@ -32,9 +32,10 @@ export const current = (timer: Timer, now: number) => {
     if (elapsed < end) {
       const focusBlocks = phases.filter((p) => p.kind === 'focus').length;
       const n = phases.slice(0, i + 1).filter((p) => p.kind === 'focus').length;
+      const focusMin = phases.slice(0, i).reduce((t, p) => t + (p.kind === 'focus' ? p.min : 0), 0);
       return {
         i, phase, leftMs: end - elapsed, next: phases[i + 1] ?? null,
-        block: { n, of: focusBlocks }, breakNo: phases.slice(0, i).filter((p) => p.kind === 'break').length,
+        block: { n, of: focusBlocks }, focusMin, breakNo: phases.slice(0, i).filter((p) => p.kind === 'break').length,
         paused: timer.pausedAt !== null,
       };
     }
@@ -48,16 +49,26 @@ const BREAKS = [
   'stand up & walk around for a few 🚶', 'one minute of slow breathing or a stretch 🧘', 'look far away, out a window if you can 🌳',
   'grab some water 💧', 'say hi in chat 👋',
 ];
-export const announce = (c: Current | null): string => {
+// What chat has done so far, for the break cheer. opened = the landmark that just opened, already spelled out.
+export type Wins = { built: number; landmarks: number; finished: string[]; opened?: string };
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const cheer = (c: Current, w: Wins) => [
+  `🎉 block ${c.block.n}/${c.block.of} done, ${c.focusMin} min of focus so far!`,
+  ...(w.built || w.landmarks ? [`${count(w.built, 'building', 'buildings')} lit${w.landmarks ? ` + ${count(w.landmarks, 'landmark', 'landmarks')}` : ''} today`] : []),
+  ...(w.opened ? [`${w.opened} just opened on the skyline 🏛️`] : []),
+  ...(w.finished.length ? [`${w.finished.map((n) => `@${n}`).join(' ')} finished something this block 💪`] : []),
+].join(' · ');
+
+export const announce = (c: Current | null, wins: Wins = { built: 0, landmarks: 0, finished: [] }): string => {
   if (!c) return 'shift complete 🎉 great work everyone';
   const mins = Math.round(c.leftMs / MIN);
   switch (c.phase.kind) {
     case 'kickoff': return `kickoff ☕ post your goals with !task, first focus block in ${mins} min`;
     case 'focus': return `focus on 🎧 block ${c.block.n}/${c.block.of} · ${mins} min. heads down, chat stays chill`;
-    case 'break': return `break time (${mins} min): ${BREAKS[c.breakNo % BREAKS.length]} skip the feeds & email`;
-    case 'lunch': return `lunch 🍜 ${mins} min, do whatever recharges you (a walk outside is great)`;
-    case 'replan': return `afternoon re-plan 📝 check your floors with !tasks, pick lighter work for after lunch`;
-    case 'recap': return `recap 🏁 share one win in chat! unfinished floors wait for next time`;
+    case 'break': return `${cheer(c, wins)} · ☕ ${mins} min break: ${BREAKS[c.breakNo % BREAKS.length]} skip the feeds & email`;
+    case 'lunch': return `${cheer(c, wins)} · lunch 🍜 ${mins} min, do whatever recharges you (a walk outside is great)`;
+    case 'replan': return `afternoon re-plan 📝 check your list with !tasks, pick lighter work for after lunch`;
+    case 'recap': return `recap 🏁 share one win in chat! unfinished buildings wait for next time`;
   }
 };
 

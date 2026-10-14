@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PRESETS, current, handleTimer, type Timer } from './focus.ts';
+import { PRESETS, announce, current, handleTimer, type Timer } from './focus.ts';
 
 const MIN = 60_000;
 const mod = { isMod: true };
@@ -95,5 +95,28 @@ describe('handleTimer', () => {
     const r = handleTimer(started, viewer, '!timer', 15 * MIN)!;
     expect(r.timer).toBe(started);
     expect(r.reply).toMatch(/focus.*45/i);
+  });
+});
+
+describe('break messages celebrate the work so far', () => {
+  const at = (min: number) => current({ preset: 'pomodoro', startedAt: 0, pausedAt: null }, min * MIN)!;
+
+  it('leads with blocks and focus minutes done, then the break', () => {
+    const r = announce(at(25 * 3 + 10), { built: 0, landmarks: 0, finished: [] }); // 3rd break, just started
+    expect(r).toMatch(/^🎉 block 3\/8 done, 75 min of focus so far/);
+    expect(r).toContain('5 min break');
+  });
+
+  it('counts what got built today, cheers who finished this block, names a new landmark', () => {
+    const r = announce(at(26), { built: 5, landmarks: 1, finished: ['sam', 'jo'], opened: 'a fountain' });
+    expect(r).toContain('5 buildings lit + 1 landmark today');
+    expect(r).toContain('a fountain just opened on the skyline');
+    expect(r).toContain('@sam @jo finished something');
+    expect(announce(at(26), { built: 1, landmarks: 0, finished: [] })).toContain('1 building lit today');
+  });
+
+  it('lunch after focus celebrates too', () => {
+    const lunch = current({ preset: 'deep', startedAt: 0, pausedAt: null }, (90 + 20 + 90 + 1) * MIN)!;
+    expect(announce(lunch, { built: 2, landmarks: 0, finished: [] })).toMatch(/^🎉 block 2\/4 done, 180 min.*lunch/);
   });
 });
