@@ -1,5 +1,7 @@
 // Imperative shell: Twitch I/O + file persistence. Logic lives in pure modules.
 import { readFile, readdir, writeFile, mkdir, rename } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { RefreshingAuthProvider } from '@twurple/auth';
 import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
@@ -14,6 +16,7 @@ import { announce, current, handleTimer, PRESETS, type Current, type Timer } fro
 import { canRequest, nowPlaying, parseMusic } from './music.ts';
 import { spotifyClient } from './spotify.ts';
 import { handleLink } from './links.ts';
+import { speakable } from './tts.ts';
 import { earnChat, earnDone, earnPresence, handleWorkout, nextWorkout, type Gym } from './workout.ts';
 import SunCalc from 'suncalc';
 
@@ -164,6 +167,10 @@ listener.onChannelFollow(channel, bot, (e) => push({ type: 'follow', name: e.use
 listener.onChannelRaidTo(channel, (e) => push({ type: 'raid', from: e.raidingBroadcasterDisplayName, viewers: e.viewers }));
 listener.onChannelChatMessage(channel, bot, (e) => handleChat(e).catch((err) => console.error('chat handler failed', err)));
 
+// Chat read aloud on the Mac, one line at a time. OBS captures only Spotify, so only the streamer hears it.
+let tts = true, speaking = Promise.resolve();
+const speak = (text: string) => { console.log(`tts: ${text}`); speaking = speaking.then(() => promisify(execFile)('say', [text])).then(() => {}, (err) => console.error('say failed', err)); };
+
 const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   console.log(`chat <${e.chatterName}> ${e.messageText}`);
   if (e.chatterId === bot.id && bot.id !== channel.id) return; // separate bot account: ignore our own messages
@@ -184,6 +191,10 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
 
   saveGym(earnChat(gym, chatter.userId, Date.now()));
   const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
+  const ttsCmd = word.match(/^!tts (on|off)$/)?.[1];
+  if (ttsCmd && isMod) { tts = ttsCmd === 'on'; await say(`🔊 reading chat aloud: ${ttsCmd}`); }
+  const line = speakable(chatter.userName, e.messageText);
+  if (tts && line) speak(line);
   if (word === '!newday' && isMod) {
     await startNewDay(false);
     await say('🌅 new day, clear skyline! yesterday\'s city is archived, unfinished buildings carried over. !task to start building');
