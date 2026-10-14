@@ -25,14 +25,35 @@ export const LANDMARKS = {
 export const landmarkFor = (min: number, r: number): Kind =>
   pick(min >= 80 ? LANDMARKS.grand : min >= 40 ? LANDMARKS.civic : LANDMARKS.small, r);
 
+// How chat says a kind: 'a water tower', or bare 'water tower' with article = false.
+const SPELLED: Partial<Record<Kind, string>> = { watertower: 'water tower', clocktower: 'clock tower', ferris: 'ferris wheel' };
+export const nameOf = (k: Kind, article = true) => {
+  const name = SPELLED[k] ?? k;
+  return article ? `${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name}` : name;
+};
+
 export const kindOfFloor = (id: string, f: Floor): Kind => f.kind ?? POOL[hash(`${id}:${f.task}`) % POOL.length]!; // older floors had no kind
 
 export type Storey = { id: string; done: boolean; at: number };
-export type Lot = { kind: Kind; id: string; done: boolean; at: number; x: number; w: number; h: number; storeys: Storey[] };
+export type Row = 'front' | 'back';
+export type Lot = { kind: Kind; id: string; done: boolean; at: number; row: Row; x: number; w: number; h: number; storeys: Storey[] };
 
-// Blank canvas → tasks fill the street left to right in the order they were opened (scaffolding until done).
-// Once nothing more fits, each new task adds a storey to the shortest office/apartment, so the city grows up.
-// Focus landmarks fill in from the right end, so a new one never shuffles viewers' lots.
+// Skyline seen from across the river: low buildings line the riverfront, towers rise behind them.
+const FRONT: ReadonlySet<Kind> = new Set(['park', 'pool', 'fountain', 'shop', 'house', 'arena', 'ferris']);
+export const rowOf = (k: Kind): Row => (FRONT.has(k) ? 'front' : 'back');
+
+// The k-th lot in a row aims at a golden-ratio spot (mid, left, right, ...) so the city fills evenly,
+// and takes the free spot nearest to it. Lots are placed in task order, so a new one never moves the old.
+const PHI = (Math.sqrt(5) - 1) / 2;
+const place = (taken: readonly Lot[], w: number, k: number, width: number): number | null => {
+  const want = Math.round(Math.min(width - w, Math.max(0, ((0.5 + k * PHI) % 1) * width - w / 2)));
+  const fits = (x: number) => x >= 0 && x + w <= width && taken.every((l) => x + w + GAP <= l.x || x >= l.x + l.w + GAP);
+  const spots = [want, 0, width - w, ...taken.flatMap((l) => [l.x + l.w + GAP, l.x - GAP - w])].filter(fits);
+  return spots.length ? spots.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)) : null;
+};
+
+// Blank city → each task takes a lot in its row (scaffolding until done).
+// Once its row is full, the task adds a storey to the shortest office/apartment, so the city grows up.
 export const cityLayout = (town: Town, width: number): Lot[] => {
   const items = Object.entries(town)
     .flatMap(([id, b]) => b.floors.map((f: Floor, i) => ({
@@ -42,25 +63,24 @@ export const cityLayout = (town: Town, width: number): Lot[] => {
     })))
     .sort((a, b) => a.at - b.at);
 
-  const lots: Lot[] = [];
-  // landmarks get at most half the street: the newest that fit stay, oldest drop out of view
-  const landmarks: typeof items = [];
+  // landmarks get at most half the city's width: the newest that fit stay, oldest drop out of view
+  // ponytail: a dropped landmark frees its lot, so later lots may shift once; fine at one drop per long day
+  const shown = new Set<object>();
   let room = width / 2 + GAP;
   for (const it of items.filter((i) => i.id === FOCUS_ID).reverse()) {
     if (SIZE[it.kind][0] + GAP > room) break;
     room -= SIZE[it.kind][0] + GAP;
-    landmarks.unshift(it);
+    shown.add(it);
   }
-  let right = width;
-  for (const { id, done, kind, at } of landmarks) {
-    const [w, h] = SIZE[kind];
-    lots.push({ kind, id, done, at, x: right - w, w, h, storeys: [] });
-    right -= w + GAP;
-  }
-  let x = 0;
-  for (const { id, done, kind, at } of items.filter((it) => it.id !== FOCUS_ID)) {
-    const [w, h] = SIZE[kind];
-    if (x + w <= right) { lots.push({ kind, id, done, at, x, w, h, storeys: [] }); x += w + GAP; continue; }
+
+  const lots: Lot[] = [];
+  for (const it of items) {
+    if (it.id === FOCUS_ID && !shown.has(it)) continue;
+    const { id, done, kind, at } = it, [w, h] = SIZE[kind], row = rowOf(kind);
+    const inRow = lots.filter((l) => l.row === row);
+    const x = place(inRow, w, inRow.length, width);
+    if (x !== null) { lots.push({ kind, id, done, at, row, x, w, h, storeys: [] }); continue; }
+    if (id === FOCUS_ID) continue; // landmarks never become storeys
     const street = lots.filter((l) => l.id !== FOCUS_ID), towers = street.filter((l) => STACKABLE.has(l.kind));
     const pool = towers.length ? towers : street;
     if (pool.length) pool.reduce((a, b) => (b.storeys.length < a.storeys.length ? b : a)).storeys.push({ id, done, at });
@@ -69,8 +89,17 @@ export const cityLayout = (town: Town, width: number): Lot[] => {
 };
 
 // Calm street life that moves in as the city grows (finished buildings + storeys).
-const LIFE = [[3, 'cars'], [6, 'cart'], [12, 'balloon']] as const;
+const LIFE = [[3, 'boats'], [6, 'cart'], [12, 'balloon']] as const;
 export const streetLife = (lots: Lot[]) => {
   const built = lots.reduce((n, l) => n + (l.done ? 1 : 0) + l.storeys.filter((s) => s.done).length, 0);
   return LIFE.filter(([at]) => built >= at).map(([, what]) => what);
 };
+
+// The far shore: faint towers across the bay, a new skyline each day. More appear as the city grows;
+// k is each tower's share of the far skyline's height, which the overlay ties to the tallest real building.
+export const farRow = (width: number, n: number, seed: string) =>
+  Array.from({ length: n }, (_, i) => {
+    const r = (s: string) => hash(`${seed}:${i}:${s}`);
+    const w = 6 + (r('w') % 9);
+    return { x: r('x') % (width - w + 1), w, k: 0.4 + (r('k') % 61) / 100 };
+  });

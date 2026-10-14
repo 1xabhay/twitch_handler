@@ -10,11 +10,19 @@
 <script type="module">
   import { catRoof, celestial, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
-  import { cityLayout, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
+  import { cityLayout, farRow, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
   import { current } from '/lib/focus.ts';
 
-  const ctx = document.querySelector('canvas').getContext('2d');
-  const WIDTH = 480, GROUND = 262, W = 16;
+  const screen = document.querySelector('canvas').getContext('2d');
+  // the city is drawn on its own layer, then stamped onto the screen with a dark outline: readable on white or black
+  const layer = Object.assign(document.createElement('canvas'), { width: 480, height: 270 }).getContext('2d');
+  const OUTLINE = ['1px 0', '-1px 0', '0 1px', '0 -1px'].map((o) => `drop-shadow(${o} 0 #0B0B12)`).join(' ');
+  let ctx = screen; // drawing helpers paint wherever ctx points
+  const WIDTH = 480, GROUND = 250, W = 16; // GROUND = the far riverbank; the river runs below it
+  // the shoreline wanders: two slow waves, kept clear of the boat lane
+  const SHORE = Array.from({ length: WIDTH }, (_, x) =>
+    GROUND + Math.min(11, Math.max(2, Math.round(6 + 4.5 * Math.sin(x / 85 + 0.7) + 1.5 * Math.sin(x / 23 + 2)))));
+  const BACK = 3; // the back row stands a little further off, on higher ground
   const params = new URLSearchParams(location.search);
   const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
   ctx.canvas.style.opacity = params.get('alpha') ?? '1'; // ?alpha=0.7 → whole overlay see-through
@@ -22,7 +30,7 @@
   const C = {
     wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
     hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
-    street: '#3B3B4F', hat: '#F2C230', vest: '#FF8A3D', skin: '#E8B796', legs: '#3A4A6B', cat: '#1E1E24',
+    hat: '#F2C230', vest: '#FF8A3D', skin: '#E8B796', legs: '#3A4A6B', cat: '#1E1E24',
   };
   const SKIES = {
     night: ['#0B1026', '#1C2448'], dawn: ['#3A3F7A', '#F2A07B'], day: ['#5FA8E8', '#BFE3FF'], dusk: ['#2B2D5C', '#E8735A'],
@@ -33,7 +41,7 @@
 
   // --- buildings -----------------------------------------------------------
   // Under construction is airy and see-through; finished is solid and lit — the two states read by shape and mass.
-  const AIRY = 'rgba(139,155,180,0.22)', POLE = '#8B9BB4';
+  const AIRY = '#3E4A5E', POLE = '#C8D4E6'; // opaque: no camera showing through the city
   const beaconOn = (t, seed) => (t + seed) % 3000 < 200; // one short blink every 3 s, each site on its own beat
   const scaffolding = (x, y, t, seed) => { // one open storey (top-left x, y)
     px(x, y, W, FH, AIRY);
@@ -173,6 +181,24 @@
     },
   };
 
+  // --- depth: a side wall and roof edge slanting back on the side away from the sun ------
+  const D = 3; // how far back the box goes (px)
+  const BODY = { // the box behind each solid building: [x offset, width, height, wall colour]
+    office: [0, 16, 16, '#5E7A96'], apartment: [0, 16, 16, '#B9876A'], house: [2, 12, 10, '#8C6F5A'], shop: [0, 16, 10, '#C9A27A'],
+    factory: [0, 18, 12, '#7A6A5A'], school: [0, 24, 12, '#B5523B'], hospital: [0, 20, 18, '#E8E8EC'], skyscraper: [0, 20, 60, '#4A6A8A'],
+    clocktower: [2, 10, 28, '#C9B38A'], arena: [0, 32, 8, '#8A8A9A'],
+  }; // parks, pools, fountains, towers on legs, turbines and the wheel are open shapes: no box
+  const shade = (hex, k) => '#' + [1, 3, 5].map((i) => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join('');
+  const depth = (x, base, h, body, done, right, night) => {
+    const [dx, w, , wall] = body, c = done ? wall : AIRY, top = base - h, dir = right ? 1 : -1;
+    for (let i = 1; i <= D; i++) px(x + dx + dir * i, top - i, w, 1, shade(c, 0.85)); // roof edge
+    const sx = right ? x + dx + w : x + dx - 1;
+    for (let i = 0; i < D; i++) {
+      px(sx + dir * i, top - i, 1, h, shade(c, night ? 0.45 : 0.6)); // side wall in shade
+      if (done && i === 1 && h >= 16) for (let y = top + 3; y < base - 3; y += 4) px(sx + dir, y - 1, 1, 1, shade(C.lit, 0.7)); // a few side windows
+    }
+  };
+
   const house = (x, y, night) => { // little two-storey house with a pitched roof
     px(x + 2, y - 10, 12, 10, '#8C6F5A'); px(x + 7, y - 5, 2, 5, C.dark);
     for (let i = 0; i < 4; i++) px(x + 1 + i, y - 11 - i, 14 - 2 * i, 1, '#9C4A3A');
@@ -274,10 +300,10 @@
   };
 
   // --- street life (unlocks as the city grows) ------------------------------
-  const car = (x, color, dir, night) => {
-    px(x, GROUND + 4, 8, 3, color); px(x + 2, GROUND + 2, 4, 2, color); px(x + 3, GROUND + 3, 2, 1, '#BFE3FF');
-    px(x + 1, GROUND + 7, 2, 1, '#111111'); px(x + 5, GROUND + 7, 2, 1, '#111111');
-    if (night) px(dir > 0 ? x + 7 : x, GROUND + 5, 1, 1, C.shine);
+  const boat = (x, color, dir, night, y) => { // little river boat with a wake
+    px(x, y, 10, 2, color); px(x + 1, y + 2, 8, 1, '#22202B'); px(x + 3, y - 2, 4, 2, '#F4F4F4'); px(x + 4, y - 2, 1, 1, '#9FC4E0');
+    px(dir > 0 ? x - 4 : x + 11, y + 2, 3, 1, '#BFE3FF');
+    if (night) px(dir > 0 ? x + 9 : x, y - 1, 1, 1, C.shine);
   };
   const foodCart = (x) => {
     px(x, GROUND - 4, 8, 3, '#E8D8B0'); px(x + 1, GROUND - 1, 2, 1, '#111111'); px(x + 5, GROUND - 1, 2, 1, '#111111');
@@ -331,7 +357,8 @@
     const nowDate = new Date(), phase = sunPhase ?? phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
     const weather = weatherOn(nowDate.toLocaleDateString('en-CA'), season);
     const xOf = (l) => 8 + l.x;
-    const topOf = (l) => GROUND - l.h - l.storeys.length * FH;
+    const baseOf = (l) => (l.row === 'back' ? GROUND - BACK : GROUND);
+    const topOf = (l) => baseOf(l) - l.h - l.storeys.length * FH;
     const complete = (l) => l.done && l.storeys.every((s) => s.done);
     const roofs = lots.filter((l) => STACKABLE.has(l.kind) && complete(l));
 
@@ -347,31 +374,54 @@
       ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = fade; ctx.fillRect(0, skyTop, WIDTH, 40);
       ctx.globalCompositeOperation = 'source-over';
     }
+    // the far shore: faint towers across the bay, growing with the city; lit windows dotted at night
+    const FAR = { day: '#A9BCD4', dawn: '#7C80AA', dusk: '#6E6A98', night: '#26304F' }, farH = 12 + skyline * 0.7;
+    ctx.globalAlpha = 0.8;
+    farRow(WIDTH, Math.min(40, 6 + lots.length * 2), nowDate.toLocaleDateString('en-CA')).forEach(({ x, w, k }, i) => {
+      const h = Math.round(k * farH);
+      px(x, GROUND - 6 - h, w, h + 6, FAR[phase]);
+      if (phase !== 'day') for (let y = GROUND - 4 - h; y < GROUND - 6; y += 3) for (let c = x + 1; c < x + w - 1; c += 3)
+        if ((c * 7 + y * 13 + i) % 5 === 0) px(c, y, 1, 1, '#B8A060');
+    });
+    ctx.globalAlpha = 1;
     // sun by day, moon by night, crossing the sky on local time (real sunrise/sunset with SUN_LAT/SUN_LON)
     const at = (h) => new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), h).getTime();
     const { body, f } = celestial(Date.now(), sunTimes ?? { sunrise: at(6), sunset: at(20) });
     const highY = skyTop + 12, lowY = Math.max(highY, GROUND - skyline - 32);
     const clockX = 20 + f * (WIDTH - 40);
+    const shadeRight = f < 0.5; // buildings show their shaded side away from the sun (or moon)
     skyClock(body, clockX, lowY - Math.sin(Math.PI * f) * (lowY - highY), focus, t);
     // the landmark in progress rises with the focus countdown
     const progress = focus?.phase.kind === 'focus' ? 1 - focus.leftMs / (focus.phase.min * 60_000) : 1;
-    px(0, GROUND, WIDTH, 2, '#5A6988'); px(0, GROUND + 2, WIDTH, 1, '#8B9BB4'); px(0, GROUND + 3, WIDTH, 5, C.street); // sidewalk, curb, road
-    for (let i = 0; i < WIDTH; i += 8) px(i, GROUND + 5, 3, 1, '#8B9BB4'); // lane dashes
+    ctx = layer; ctx.clearRect(0, 0, WIDTH, 270);
 
-    // ponytail: storeys go on the shortest tower forever; past ~25 storeys it reaches the top — add a back row then.
-    lots.forEach((l, i) => {
-      const x = xOf(l), night = phase !== 'day';
+    // ponytail: storeys go on the shortest tower forever; past ~25 storeys it reaches the top of the frame.
+    const drawLot = (l) => {
+      const x = xOf(l), base = baseOf(l), night = phase !== 'day';
       const h = l.id === FOCUS_ID ? Math.max(3, Math.round(l.h * progress)) : l.h, seed = hash(pieceKey(l.id, l.at)) % 3000;
-      l.done ? LOTS[l.kind](x, GROUND, t, night, season) : scaffoldBox(x, GROUND, l.w, h, t, seed);
-      reveal(pieceKey(l.id, l.at), x, GROUND, l.w, l.h, t, seed);
+      const body = l.done ? BODY[l.kind] : [0, l.w, h, AIRY];
+      if (body) depth(x, base, (l.done ? body[2] : h) + l.storeys.length * FH, body, l.done, shadeRight, night);
+      l.done ? LOTS[l.kind](x, base, t, night, season) : scaffoldBox(x, base, l.w, h, t, seed);
+      reveal(pieceKey(l.id, l.at), x, base, l.w, l.h, t, seed);
       l.storeys.forEach((s, k) => {
-        const y = GROUND - l.h - (k + 1) * FH, sseed = hash(pieceKey(s.id, s.at)) % 3000;
+        const y = base - l.h - (k + 1) * FH, sseed = hash(pieceKey(s.id, s.at)) % 3000;
         s.done ? (STOREY[l.kind] ?? STOREY.office)(x, y) : scaffolding(x, y, t, sseed);
         reveal(pieceKey(s.id, s.at), x, y + FH, W, FH, t, sseed);
       });
       if (STACKABLE.has(l.kind) && complete(l)) roofCap(x, topOf(l), l.kind, t);
-      if (i % 4 === 3) lamp(x + l.w + 2, night); // street furniture in some gaps, not a picket fence
-      else if (i % 3 === 1) tree(x + l.w, season);
+    };
+    lots.filter((l) => l.row === 'back').forEach(drawLot);
+    // light haze over the back row: depth, like towers seen across water
+    ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(150,170,205,0.22)'; ctx.fillRect(0, 0, WIDTH, GROUND);
+    ctx.globalCompositeOperation = 'source-over';
+    for (let x = 0; x < WIDTH; x++) { // promenade, then the bank down to the water's edge
+      px(x, GROUND, 1, 2, '#5A6988'); px(x, GROUND + 2, 1, SHORE[x] - GROUND - 2, '#4A5670');
+      if (hash('rock' + x) % 11 === 0) px(x, SHORE[x] - 1, 1, 1, '#6B7890'); // a few stones on the edge
+    }
+    lots.filter((l) => l.row === 'front').forEach((l, i) => {
+      drawLot(l);
+      if (i % 4 === 3) lamp(xOf(l) + l.w + 2, phase !== 'day'); // promenade furniture in some gaps, not a picket fence
+      else if (i % 3 === 1) tree(xOf(l) + l.w, season);
     });
     for (const [id, until] of wheres) {
       if (Date.now() > until) { wheres.delete(id); continue; }
@@ -380,7 +430,7 @@
     const catAt = catRoof(roofs.length, Date.now());
     if (catAt !== null) cat(xOf(roofs[catAt]) + 3, topOf(roofs[catAt]) - 2, t);
     const life = streetLife(lots), night = phase !== 'day';
-    if (life.includes('cars')) { car(drift(3, t, WIDTH, 18), '#4C9AFF', 1, night); car(WIDTH - 8 - drift(5, t, WIDTH, 12), '#E4572E', -1, night); }
+    if (life.includes('boats')) { boat(drift(3, t, WIDTH, 6), '#4C9AFF', 1, night, GROUND + 14); boat(WIDTH - 10 - drift(5, t, WIDTH, 4), '#E4572E', -1, night, GROUND + 17); }
     if (life.includes('cart')) foodCart(drift(11, t, WIDTH, 4));
     const bx = drift(7, t, WIDTH, 3);
     if (life.includes('balloon') && SKY && Math.abs(bx - clockX) > 24) balloon(bx, skyTop + 14); // never over the clock
@@ -416,6 +466,16 @@
       if (v.x > WIDTH + 30) { visitors.splice(i, 1); continue; }
       vehicle(v.x, v.kind === 'truck' ? '#4C9AFF' : '#F2C230', v.kind === 'bus');
     }
+    ctx = screen;
+    // the river: dark water mirroring the skyline, squashed and rippling
+    px(0, GROUND + 2, WIDTH, 270 - GROUND - 2, phase === 'day' ? '#2E4E70' : '#141C33');
+    for (let y = 0; y < 270 - GROUND - 2; y++) {
+      ctx.globalAlpha = 0.45 * (1 - y / 24);
+      ctx.drawImage(layer.canvas, 0, GROUND - 1 - y * 2, WIDTH, 1, Math.round(Math.sin(t / 900 + y * 1.3)), GROUND + 2 + y, WIDTH, 1);
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < 6; i++) px(drift(20 + i, t, WIDTH, 2 + i), GROUND + 4 + ((i * 5) % 14), 3, 1, 'rgba(255,255,255,0.35)'); // glints
+    ctx.filter = OUTLINE; ctx.drawImage(layer.canvas, 0, 0); ctx.filter = 'none';
     requestAnimationFrame(frame);
   };
 
