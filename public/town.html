@@ -427,16 +427,17 @@
     ctx.globalAlpha = 1;
     // sun by day, moon by night, crossing the sky on local time (real sunrise/sunset with SUN_LAT/SUN_LON)
     const at = (h) => new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), h).getTime();
-    let shadeRight; // buildings show their shaded side away from the light
+    let shadeRight, clockX = -99; // buildings show their shaded side away from the light
     if (realSky) { // real positions: the moon wherever it is, the timer on the brightest thing up (sun, moon, star)
       const c = carrier(realSky), edge = (p) => ({ x: Math.min(WIDTH - 20, Math.max(20, p.x)), y: p.y });
       if (realSky.moon.alt > 0 && c?.body !== 'moon') { const m = project(realSky.moon, skyBox); moon(m.x, m.y, realSky.moon.phase); }
       shadeRight = (c?.az ?? 180) < 180; // light from the east
-      if (c) { const p = edge(project(c, skyBox)); skyClock(c.body, p.x, p.y, focus, t, realSky.moon.phase); }
+      if (c) { const p = edge(project(c, skyBox)); clockX = p.x; skyClock(c.body, p.x, p.y, focus, t, realSky.moon.phase); }
     } else {
       const { body, f } = celestial(Date.now(), sunTimes ?? { sunrise: at(6), sunset: at(20) });
       shadeRight = f < 0.5;
-      skyClock(body, 20 + f * (WIDTH - 40), lowY - Math.sin(Math.PI * f) * (lowY - highY), focus, t);
+      clockX = 20 + f * (WIDTH - 40);
+      skyClock(body, clockX, lowY - Math.sin(Math.PI * f) * (lowY - highY), focus, t);
     }
     // the landmark in progress rises with the focus countdown
     const progress = focus?.phase.kind === 'focus' ? 1 - focus.leftMs / (focus.phase.min * 60_000) : 1;
