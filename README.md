@@ -12,7 +12,7 @@ Inspired by [PomodoroWorld](https://pomodoroworld.com). If you want a polished 3
 
 ```sh
 npm install
-npm run preview -- onepiece night     # → http://localhost:3005/town?bg=1
+npm run preview -- onepiece night     # → http://localhost:3005/town
 ```
 
 **Run it on your channel (about 6 commands):** needs Node 23.6+ (runs TypeScript natively), the [Twitch CLI](https://dev.twitch.tv/docs/cli/) and OBS. Register an app at [dev.twitch.tv/console](https://dev.twitch.tv/console) first (verified email + 2FA). A separate bot account is recommended.
@@ -30,7 +30,7 @@ Then type `/mod <botname>` in your chat and add the overlays below to OBS as **B
 
 | Overlay URL | Size | Shows |
 |---|---|---|
-| `http://localhost:3001/town` | 1920×1080 | the city and sky (`?bg=1` full-screen backdrop for the bottom of the scene, `?sky=0` buildings only, `?alpha=0.7` see-through) |
+| `http://localhost:3001/town` | 1920×1080 | the city and sky, full screen with the old city behind by default (put it at the bottom of the scene); mods switch to a strip under the camera with `!view bottom`. `?bg=` pins a view: `city`, `0` bottom, `1` opaque sky without the old city. `?land=alpine|coast|valley|mesa|archipelago|fjord` pins today's landscape. `?sky=0` buildings only, `?alpha=0.7` see-through |
 | `http://localhost:3001/timer` | 600×200 | focus timer, hidden when idle |
 | `http://localhost:3001/music` | 600×140 | now-playing card |
 | `http://localhost:3001/workout` | 600×160 | Channel Points workout queue |
@@ -59,6 +59,7 @@ Optional `.env` extras: `SUN_LAT`/`SUN_LON` (real sun, moon and stars for your c
 | `!leave` / `!join` | anyone | hide / show your builder |
 | `!theme` | anyone | today's theme and the theme calendar |
 | `!theme <name>` / `off` / `auto` | mods | switch theme for today / plain city today / back to the calendar |
+| `!view` / `!view city` / `!view bottom` | anyone / mods | current view / full screen with the old city behind (default) / just the strip under the camera |
 | `!newday` | mods | archive the city to `data/town-<date>.json`, keep unfinished tasks |
 | `!timer` | anyone | current phase and time left |
 | `!timer start [shift\|pomodoro\|deep]`, `pause`, `resume`, `skip`, `stop` | mods | control the focus timer |

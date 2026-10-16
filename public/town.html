@@ -10,11 +10,12 @@
 <script type="module">
   import { carrier, catRoof, celestial, drift, hash, phaseAt, project, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
-  import { cityLayout, farRow, oldTown, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
+  import { cityLayout, cityscape, farRow, oldTown, FH, FOCUS_ID, SIZE, STACKABLE, streetLife } from '/lib/scene/city.ts';
   import { current } from '/lib/focus.ts';
   import { C, kit, shade, tree } from '/lib/scene/blocks.ts';
   import { THEMES, settled, steer, tide } from '/lib/scene/theme.ts';
   import { evaluate, STREET, streetInputs } from '/lib/scene/circuit.ts';
+  import { fbm, land, liftAt } from '/lib/scene/land.ts';
 
   const screen = document.querySelector('canvas').getContext('2d');
   // the city is drawn on its own layer, then stamped onto the screen with a dark outline: readable on white or black
@@ -29,8 +30,15 @@
   const params = new URLSearchParams(location.search);
   const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
   ctx.canvas.style.opacity = params.get('alpha') ?? '1'; // ?alpha=0.7 → whole overlay see-through
-  const BG = params.get('bg') === '1'; // ?bg=1 → full-screen backdrop: opaque sky top to bottom, for the bottom of the OBS stack
-  const SKY_ALPHA = BG ? 1 : 0.5; // otherwise the sky is a faint tint over the camera; the city itself is solid
+  // The view: 'city' (default) = full screen, the old city behind and sky only above HORIZON; 'bottom' = a strip over the
+  // camera, the sky a faint tint. Mods switch it with !view (state.view); ?bg= pins it: city, 0 = bottom, 1 = opaque sky, no old city.
+  const HORIZON = 70, PINNED = params.get('bg');
+  let BG, CITY, SKY_ALPHA;
+  const setView = (v) => {
+    BG = ['1', 'city'].includes(v); CITY = v === 'city';
+    SKY_ALPHA = BG ? 1 : 0.5; // the city itself is always solid
+  };
+  setView(PINNED ?? 'city');
   const SKIES = {
     night: ['#0B1026', '#1C2448'], dawn: ['#3A3F7A', '#F2A07B'], day: ['#5FA8E8', '#BFE3FF'], dusk: ['#2B2D5C', '#E8735A'],
   };
@@ -152,6 +160,122 @@
     px(x + 4, y - (Math.floor(t / 2500) % 4 === 0 ? 3 : 1), 1, 1, C.cat); // tail flick now and then
   };
 
+  // --- the city behind (view 'city'): the same city further back, same blocks, smaller and hazier with distance,
+  // built on the day's land (src/scene/land.ts): ranges beyond, hills, cliffs, forests, fields, water. Drawn once per
+  // day, phase, season and theme. ?land=alpine|coast|valley|mesa|archipelago|fjord pins the landscape (previews).
+  const LAND = params.get('land');
+  let today = null;
+  const landOf = (date, season) => (today?.key === date + season ? today
+    : (today = { key: date + season, L: land(date, WIDTH, { biome: LAND ?? undefined, season }) })).L;
+  const mouthOf = (date, season) => { const m = landOf(date, season).river(1); return { x: m.x - 8 - 2, w: m.w + 4 }; }; // in street coords
+  const GREEN = { spring: ['#8CC66A', '#5E9E48'], summer: ['#6FA858', '#3E7434'], autumn: ['#B8A050', '#6E7438'], winter: ['#C9D2DA', '#5A6E5A'] };
+  const COVER = { sand: '#D9A066', beach: '#E6D6A6', rock: '#8A8078', snow: '#EEF2F8' };
+  const FACE = { mesa: ['#B5653A', '#9A4E2C'], other: ['#7A7068', '#665E58'] }; // cliff faces, with strata
+  const RANGE = { alpine: [40, 'ridge'], fjord: [34, 'ridge'], valley: [14, 'soft'], coast: [16, 'soft'], mesa: [22, 'butte'], archipelago: [8, 'isles'] };
+  const mix = (a, b, f) => '#' + [1, 3, 5].map((i) =>
+    Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - f) + parseInt(b.slice(i, i + 2), 16) * f).toString(16).padStart(2, '0')).join('');
+  const sprite = (k, p, sc, fog, haze, s) => { // one finished building at full size, hazed, then shrunk onto ctx
+    const [sw, sh] = SIZE[p.kind], W = sw + 4, H = sh + p.storeys * FH + 12, keep = ctx;
+    ctx = Object.assign(document.createElement('canvas'), { width: W, height: H }).getContext('2d');
+    k.lots[p.kind](px, 2, H, s);
+    for (let i = 0; i < p.storeys; i++) (k.storey[p.kind] ?? k.storey.office)(px, 2, H - sh - (i + 1) * FH, s);
+    if (STACKABLE.has(p.kind)) k.roof(px, 2, H - sh - p.storeys * FH, p.kind, 0);
+    ctx.globalCompositeOperation = 'source-atop'; ctx.globalAlpha = fog; ctx.fillStyle = haze; ctx.fillRect(0, 0, W, H);
+    const img = ctx.canvas; ctx = keep;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, Math.round(p.x - 2 * sc), Math.round(p.y - H * sc), Math.round(W * sc), Math.round(H * sc));
+  };
+  // trees by landscape: pines up high and north, round crowns in valleys, palms on islands, scrub and cacti in the desert
+  const wildTree = (x, y, sc, type, season, f, seed) => {
+    const th = 2 + Math.round((3 + (seed % 3)) * sc * 1.6);
+    if (type === 'pine') {
+      const c = f(season === 'autumn' ? '#2E5A34' : '#2F5E3A');
+      for (let d = 0; d < th; d++) px(x - (d >> 1), y - th + d, 1 + 2 * (d >> 1), 1, c);
+      if (season === 'winter') px(x, y - th, 1, 2, f('#F4F6FA'));
+    } else if (type === 'palm') {
+      px(x, y - th, 1, th, f('#8A6A44')); px(x - 2, y - th, 5, 1, f('#4E9A48')); px(x - 1, y - th - 1, 3, 1, f('#5FB058'));
+    } else if (type === 'scrub') {
+      seed % 4 ? px(x - 1, y - 2, 3, 2, f('#7A8A4A')) : (px(x, y - th, 1, th, f('#5E8A4A')), px(x - 1, y - th + 2, 1, 2, f('#5E8A4A')));
+    } else {
+      if (season === 'winter') { px(x, y - th, 1, th, f('#6A5444')); px(x - 1, y - th + 1, 3, 1, f('#6A5444')); return; }
+      const leaf = season === 'autumn' ? ['#C8632E', '#D9A13A', '#A84A2A'][seed % 3] : GREEN[season][1];
+      px(x, y - 2, 1, 2, f('#5A4434')); px(x - 1, y - th, 3, th - 1, f(leaf)); px(x, y - th - 1, 1, 1, f(leaf));
+    }
+  };
+  const ranges = (L, haze, night) => { // two far ranges beyond the horizon, the nearer one sharper; snow on the high ones
+    const [tall, form] = RANGE[L.biome], seed = hash(L.seed + 'range');
+    for (const [j, f] of [[0, 0.72], [1, 0.55]]) for (let x = 0; x < WIDTH; x++) {
+      const n = fbm(seed + j * 31, x / (form === 'soft' ? 120 : 60), j * 9);
+      let h = form === 'ridge' ? (1 - Math.abs(2 * n - 1)) ** 1.5 * tall : form === 'butte' ? Math.floor(n * 4) / 4 * tall
+        : form === 'isles' ? Math.max(0, n - 0.55) * tall * 4 : n * tall;
+      if (L.biome === 'coast') h *= Math.max(0, (hash(L.seed + ':land') % 2 ? x / WIDTH : 1 - x / WIDTH) * 1.6 - 0.3); // the sea side lies open
+      h = Math.min(h * (j ? 0.8 : 1), HORIZON - 26);
+      if (h < 1) continue;
+      const base = form === 'butte' ? '#A86A4A' : '#6E82A0', y = HORIZON - Math.round(h);
+      px(x, y, 1, Math.round(h) + 12, mix(shade(base, night ? 0.45 : 1), haze, f));
+      if ((form === 'ridge' && h > tall * 0.55) || (L.season === 'winter' && form !== 'isles' && h > tall * 0.4))
+        px(x, y, 1, 1 + Math.round((h - tall * 0.4) / 5), mix('#F4F6FA', haze, f * 0.8));
+    }
+  };
+  const arch = (x, y, w, h, col, pier) => { // one span: deck on top, a pier on the left, shoulders of the arch
+    px(x, y - h, w, 2, col); px(x, y - h, w, 1, mix(col, '#FFFFFF', 0.25));
+    px(x, y - h + 2, pier, h - 2, col); px(x + pier, y - h + 2, 1, 1, col); px(x + w - 1, y - h + 2, 1, 1, col);
+  };
+  let behind = null;
+  const cityBehind = (date, phase, season, theme) => {
+    const key = [date, phase, season, theme].join('|');
+    if (behind?.key === key) return behind.canvas;
+    const night = phase !== 'day', haze = SKIES[phase][1], k = kitOf(theme), keep = ctx, L = landOf(date, season);
+    const s = { t: 0, night, season, minute: 0 }, dim = (c) => shade(c, night ? 0.45 : 1);
+    ctx = Object.assign(document.createElement('canvas'), { width: WIDTH, height: 270 }).getContext('2d');
+    ranges(L, haze, night);
+    const { rows, viaduct } = cityscape(WIDTH, HORIZON, GROUND - 12, L);
+    const tops = rows.map((r) => Array.from({ length: WIDTH }, (_, x) => r.y - liftAt(L, x, r.k)));
+    const treeType = (c, x) => L.biome === 'archipelago' ? 'palm' : L.biome === 'mesa' ? 'scrub'
+      : L.biome === 'alpine' || L.biome === 'fjord' || (L.biome !== 'coast' && L.elev(x, 0.5) > 0.45) ? 'pine' : 'round';
+    rows.forEach(({ y, k: depth, s: sc, pieces, river, bridge }, i) => {
+      const fog = 0.35 + 0.5 * (1 - depth), f = (c) => mix(dim(c), haze, fog);
+      const water = f(shade(k.water[night ? 'night' : 'day'], 1.5)), step = (rows[i + 1]?.y ?? GROUND) - y;
+      for (let x = 0; x < WIDTH; x++) {
+        const top = tops[i][x], c = L.cover(x, depth);
+        if (c === 'water') { px(x, top, 1, GROUND - top, water); if (hash(`w${i}:${x}`) % 23 === 0) px(x, top + 1, 2, 1, mix(water, '#FFFFFF', 0.3)); continue; }
+        const ground = c === 'meadow' ? GREEN[season][0] : c === 'forest' ? GREEN[season][1]
+          : c === 'field' ? ['#C8B860', '#8FB050', '#B89A50'][((x >> 3) + (i >> 1)) % 3] : c === 'rock' && L.biome === 'mesa' ? '#B5653A' : COVER[c];
+        const tilt = L.elev(x + 2, depth) - L.elev(x - 2, depth); // light from the left: slopes facing it are brighter
+        const col = f(shade(ground, 1 - Math.max(-0.15, Math.min(0.2, tilt * 3))));
+        px(x, top, 1, GROUND - top, col);
+        px(x, top, 1, 1, mix(col, '#FFFFFF', 0.12));
+        const drop = (tops[i + 1]?.[x] ?? GROUND) - top - step; // more than the usual row gap: a cliff face toward us
+        if (drop > 3) {
+          const [rock, line] = FACE[L.biome === 'mesa' ? 'mesa' : 'other'], face = (tops[i + 1]?.[x] ?? GROUND) - drop;
+          px(x, face, 1, drop, f(rock));
+          for (let yy = face + 2; yy < face + drop; yy += 3) px(x, yy, 1, 1, f(line));
+        }
+      }
+      for (let x = 1; x < WIDTH - 1; x++) { // the wild: woods thick, a lone tree on open ground now and then
+        const c = L.cover(x, depth), h = hash(`t${L.seed}:${i}:${x}`);
+        const thick = c === 'forest' ? 2 + Math.round(3 * sc) : c === 'meadow' || c === 'sand' ? 40 : c === 'beach' && L.biome === 'archipelago' ? 14 : 0;
+        if (thick && h % thick === 0) wildTree(x, tops[i][x] + 1, sc, treeType(c, x), season, f, h);
+      }
+      for (const p of pieces) sprite(k, p, sc, fog, haze, s);
+      const stone = f('#D6CDB8'), span = 4 + Math.round(5 * depth);
+      if (bridge) {
+        const deck = Math.min(tops[i][Math.max(0, river.x - 1)], tops[i][Math.min(WIDTH - 1, river.x + river.w)]);
+        for (let x = river.x - 2; x < river.x + river.w + 2; x += span) arch(x, deck + 1, span, 2 + Math.round(3 * depth), stone, 1);
+      }
+      if (i === viaduct.row) { // a level deck across the valley, piers down to the ground wherever it lies
+        const deck = Math.min(...tops[i].slice(viaduct.from, viaduct.to)) - 5;
+        for (let x = viaduct.from; x < viaduct.to; x += span + 2) {
+          px(x, deck, span + 2, 2, mix(stone, '#FFFFFF', 0.1));
+          px(x, deck + 2, 2, Math.max(0, tops[i][Math.min(WIDTH - 1, x)] - deck - 1), stone);
+          px(x + 2, deck + 2, 1, 1, stone); px(x + span + 1, deck + 2, 1, 1, stone);
+        }
+      }
+    });
+    behind = { key, canvas: ctx.canvas }; ctx = keep;
+    return behind.canvas;
+  };
+
   // --- sun/moon clock: the body follows local time across the sky and carries the focus timer --------
   const FONT = { // 3x5 pixel digits, crisp at 4x
     0: '111101101101111', 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001',
@@ -231,7 +355,9 @@
       if (doneCounts.has(id) && n > doneCounts.get(id)) jumps.set(id, now + 1200);
       doneCounts.set(id, n);
     }
-    lots = cityLayout(msg.town, WIDTH - 16); // only changes with state, not every frame
+    if (!PINNED) setView(msg.view === 'bottom' ? '0' : 'city');
+    const d = new Date(); // city view: the street leaves the river mouth open so the river reaches the bay
+    lots = cityLayout(msg.town, WIDTH - 16, CITY ? mouthOf(d.toLocaleDateString('en-CA'), seasonOf(d.getMonth())) : undefined); // only changes with state
     const doneNow = new Set(lots.flatMap((l) => [
       ...(l.done ? [pieceKey(l.id, l.at)] : []), ...l.storeys.filter((s) => s.done).map((s) => pieceKey(s.id, s.at))]));
     if (seenDone) for (const k of doneNow) if (!seenDone.has(k)) reveals.set(k, Date.now());
@@ -263,7 +389,7 @@
     const skyline = Math.max(0, ...lots.map((l) => GROUND - topOf(l)));
     const focus = current(timer, Date.now());
     const skyTop = BG ? 0 : Math.max(0, GROUND - skyline - (focus ? 75 : 30)); // a running timer keeps room for the sky clock
-    const highY = skyTop + 12, lowY = Math.max(highY, GROUND - skyline - 32);
+    const highY = skyTop + 12, lowY = CITY ? HORIZON - 30 : Math.max(highY, GROUND - skyline - 32);
     const skyBox = { width: WIDTH, top: highY, bottom: lowY }; // horizon sits just above the rooftops
     if (SKY) {
       ctx.globalAlpha = SKY_ALPHA; sky(skyTop, phase, weather, t, skyBox); ctx.globalAlpha = 1;
@@ -274,10 +400,11 @@
       ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = fade; ctx.fillRect(0, skyTop, WIDTH, 40);
       ctx.globalCompositeOperation = 'source-over';
     }
+    if (CITY) ctx.drawImage(cityBehind(nowDate.toLocaleDateString('en-CA'), phase, season, scene?.to ?? null), 0, 0);
     // the far shore: faint towers across the bay, growing with the city; lit windows dotted at night
     const FAR = { day: '#A9BCD4', dawn: '#7C80AA', dusk: '#6E6A98', night: '#26304F' }, farH = 12 + skyline * 0.7;
     ctx.globalAlpha = 0.8;
-    farRow(WIDTH, Math.min(40, 6 + lots.length * 2), nowDate.toLocaleDateString('en-CA')).forEach(({ x, w, k }, i) => {
+    (CITY ? [] : farRow(WIDTH, Math.min(40, 6 + lots.length * 2), nowDate.toLocaleDateString('en-CA'))).forEach(({ x, w, k }, i) => {
       const h = Math.round(k * farH);
       px(x, GROUND - 6 - h, w, h + 6, FAR[phase]);
       if (phase !== 'day') for (let y = GROUND - 4 - h; y < GROUND - 6; y += 3) for (let c = x + 1; c < x + w - 1; c += 3)
@@ -317,12 +444,19 @@
       });
       if (STACKABLE.has(l.kind) && complete(l)) k.roof(px, x, topOf(l), l.kind, t);
     };
-    oldTown(WIDTH - 16, nowDate.toLocaleDateString('en-CA'), lots).forEach((b, i) => kitAt(8 + b.x).oldHouse(px, { ...b, x: 8 + b.x }, GROUND - BACK, night, i));
+    const mouth = CITY ? mouthOf(nowDate.toLocaleDateString('en-CA'), season) : null;
+    oldTown(WIDTH - 16, nowDate.toLocaleDateString('en-CA'), lots, mouth ?? undefined).forEach((b, i) => kitAt(8 + b.x).oldHouse(px, { ...b, x: 8 + b.x }, GROUND - BACK, night, i));
     lots.filter((l) => l.row === 'back').forEach(drawLot);
     // light haze over the back row: depth, like towers seen across water
     ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(150,170,205,0.22)'; ctx.fillRect(0, 0, WIDTH, GROUND);
     ctx.globalCompositeOperation = 'source-over';
     for (let x = 0; x < WIDTH; x++) { // promenade, then the bank down to the water's edge
+      if (mouth && x >= mouth.x + 8 && x < mouth.x + 8 + mouth.w) { // the river mouth: the promenade crosses on arches
+        const a = x - mouth.x - 8;
+        px(x, GROUND, 1, 2, '#5A6988'); if (a % 2 === 0) px(x, GROUND - 1, 1, 1, '#5A6988'); // deck and railing
+        if (a % 9 < 2) px(x, GROUND + 2, 1, SHORE[x] - GROUND, '#4A5670'); else if (a % 9 === 2 || a % 9 === 8) px(x, GROUND + 2, 1, 1, '#4A5670');
+        continue;
+      }
       px(x, GROUND, 1, 2, '#5A6988'); px(x, GROUND + 2, 1, SHORE[x] - GROUND - 2, '#4A5670');
       if (hash('rock' + x) % 11 === 0) px(x, SHORE[x] - 1, 1, 1, '#6B7890'); // a few stones on the edge
     }

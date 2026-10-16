@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cityLayout, farRow, oldTown, FOCUS_ID, nameOf, GAP, LANDMARKS, landmarkFor, pickKind, POOL, SIZE, STACKABLE, streetLife, type Kind } from './city.ts';
+import { cityLayout, cityscape, farRow, GROUPS, oldTown, FOCUS_ID, nameOf, GAP, LANDMARKS, landmarkFor, pickKind, POOL, SIZE, STACKABLE, streetLife, type Kind } from './city.ts';
 import type { Floor, Town } from '../town.ts';
+import { land, liftAt } from './land.ts';
 
 const fl = (kind: Kind, at: number, done = false): Floor => ({ task: `t${at}`, done, kind, at });
 
@@ -116,6 +117,60 @@ describe('farRow', () => {
     expect(more.slice(0, 5)).toEqual(few);
     expect(more.every((f) => f.x >= 0 && f.x + f.w <= 300 && f.k > 0 && f.k <= 1)).toBe(true);
     expect(farRow(300, 5, '2026-10-14')).not.toEqual(few);
+  });
+});
+
+describe('cityscape', () => {
+  const L = land('2026-10-16', 480, { biome: 'valley' }), view = cityscape(480, 70, 240, L), { rows } = view;
+  const all = rows.flatMap((r) => r.pieces.map((p) => ({ ...p, k: r.k })));
+  it('is the same all day and new each day', () => {
+    expect(cityscape(480, 70, 240, land('2026-10-16', 480, { biome: 'valley' }))).toEqual(view);
+    expect(cityscape(480, 70, 240, land('2026-10-17', 480, { biome: 'valley' }))).not.toEqual(view);
+  });
+  it('rows come nearer and grow, never as big as the riverfront', () => {
+    expect(rows[0]!.y).toBe(70);
+    expect(rows.at(-1)!.y).toBe(240);
+    expect(rows.at(-1)!.s).toBeLessThan(1);
+    for (const [a, b] of rows.slice(1).map((r, i) => [rows[i]!, r] as const)) { expect(b.y).toBeGreaterThan(a.y); expect(b.s).toBeGreaterThan(a.s); }
+    for (const r of rows) for (const p of r.pieces) expect(p.w).toBe(Math.max(2, Math.round(SIZE[p.kind][0] * r.s)));
+  });
+  it('builds only on solid ground: never on water, bare rock or snow, standing on the hills', () => {
+    for (const p of all) for (const x of [p.x, p.x + p.w / 2, p.x + p.w - 1]) expect(['water', 'rock', 'snow']).not.toContain(L.cover(x, p.k));
+    for (const r of rows) for (const p of r.pieces) expect(p.y).toBe(r.y - liftAt(L, p.x + p.w / 2, r.k));
+  });
+  it('grows organically: thick downtown, thinning out into nature', () => {
+    const built = (near: boolean) => all.filter((p) => (Math.abs(p.x + p.w / 2 - view.core) < 90) === near).reduce((n, p) => n + p.w, 0);
+    expect(built(true) / 180).toBeGreaterThan(2 * (built(false) / 300));
+    const used = all.reduce((n, p) => n + p.w, 0) / (rows.length * 480);
+    expect(used).toBeGreaterThan(0.15);
+    expect(used).toBeLessThan(0.7); // room for nature
+  });
+  it('is built from our own blocks: homes and work, public facilities, recreation, one skyscraper landmark', () => {
+    const kinds = new Set(all.map((p) => p.kind));
+    for (const group of Object.values(GROUPS)) expect(group.some((k) => kinds.has(k))).toBe(true);
+    expect(all.filter((p) => p.kind === 'skyscraper')).toHaveLength(1);
+    expect(all.some((p) => p.storeys > 0)).toBe(true);
+  });
+  it('the viaduct crosses only part of town, some rows bridge the river', () => {
+    expect(view.viaduct.to - view.viaduct.from).toBeLessThan(480);
+    expect(view.viaduct.to - view.viaduct.from).toBeGreaterThan(150);
+    expect(rows.some((r) => r.bridge)).toBe(true);
+  });
+  it('keeps the top of the sky clear for the sun clock', () => {
+    expect(all.every((p) => p.y - p.h >= 24)).toBe(true);
+  });
+});
+
+describe('the river mouth', () => {
+  const mouth = { x: 200, w: 30 }, clear = (a: { x: number; w: number }) => a.x + a.w <= mouth.x || a.x >= mouth.x + mouth.w;
+  it('the street keeps it clear, so the river reaches the bay', () => {
+    const t0 = Date.UTC(2026, 0, 1);
+    const town: Town = { a: { name: 'a', floors: Array.from({ length: 30 }, (_, i) => fl(POOL[i % POOL.length]!, t0 + i)) } };
+    const lots = cityLayout(town, 464, mouth);
+    expect(lots.length).toBeGreaterThan(10);
+    expect(lots.every(clear)).toBe(true);
+    expect(oldTown(464, 'd', [], mouth).every(clear)).toBe(true);
+    expect(cityLayout(town, 464)).not.toEqual(lots); // without a river the street can use that spot
   });
 });
 

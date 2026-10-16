@@ -10,7 +10,7 @@ The first theme is [`onepiece.ts`](../src/scene/themes/onepiece.ts) (Grand Line)
 git clone https://github.com/1xabhay/twitch_handler && cd twitch_handler
 npm install
 npm run preview -- onepiece day      # no Twitch account needed
-# open http://localhost:3005/town?bg=1, edit, reload the page
+# open http://localhost:3005/town, edit, reload the page
 ```
 
 The preview shows a finished demo city with every building kind. Type another theme name (or `plain`) in the terminal and press enter to watch the tide wash it in. Phases: `day`, `dawn`, `dusk`, `night`.

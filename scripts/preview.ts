@@ -1,5 +1,5 @@
 // Theme preview without Twitch: a finished demo city (every kind, a few storeys) on the real overlay.
-// Usage: npm run preview -- [theme|plain] [day|dawn|dusk|night]   then open http://localhost:3005/town?bg=1
+// Usage: npm run preview -- [theme|plain] [day|dawn|dusk|night]   then open http://localhost:3005/town (?bg=0 bottom only)
 // Type another theme name (or "plain") and press enter to watch the tide wash it in.
 import { startOverlay } from '../src/overlay.ts';
 import { FOCUS_ID, SIZE, type Kind } from '../src/scene/city.ts';
@@ -22,5 +22,5 @@ const town: Town = {
 
 const state = () => ({ type: 'state', boot: 1, theme, phase, town, builders: [] });
 const push = startOverlay(PORT, state);
-console.log(`preview: ${theme ?? 'plain'} at ${phase} → http://localhost:${PORT}/town?bg=1 (type a theme name + enter to switch)`);
+console.log(`preview: ${theme ?? 'plain'} at ${phase} → http://localhost:${PORT}/town, ?bg=0 for bottom only (type a theme name + enter to switch)`);
 process.stdin.on('data', (b) => { theme = pick(String(b).trim() || 'plain'); push(state()); });
