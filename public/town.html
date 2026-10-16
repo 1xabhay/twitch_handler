@@ -10,7 +10,7 @@
 <script type="module">
   import { catRoof, celestial, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
-  import { cityLayout, farRow, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
+  import { cityLayout, farRow, oldTown, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
   import { current } from '/lib/focus.ts';
 
   const screen = document.querySelector('canvas').getContext('2d');
@@ -26,7 +26,8 @@
   const params = new URLSearchParams(location.search);
   const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
   ctx.canvas.style.opacity = params.get('alpha') ?? '1'; // ?alpha=0.7 → whole overlay see-through
-  const SKY_ALPHA = 0.5; // the sky is a faint tint over the camera; the city itself is solid
+  const BG = params.get('bg') === '1'; // ?bg=1 → full-screen backdrop: opaque sky top to bottom, for the bottom of the OBS stack
+  const SKY_ALPHA = BG ? 1 : 0.5; // otherwise the sky is a faint tint over the camera; the city itself is solid
   const C = {
     wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
     hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
@@ -204,6 +205,15 @@
     for (let i = 0; i < 4; i++) px(x + 1 + i, y - 11 - i, 14 - 2 * i, 1, '#9C4A3A');
     px(x + 4, y - 8, 2, 2, glass()); px(x + 10, y - 8, 2, 2, glass());
   };
+  const OLD = ['#7A6E80', '#8A7466', '#6E7A78', '#86786A']; // muted, so new buildings stand out
+  const oldHouse = ({ x, w, h, peak }, y, night, i) => { // old-town rooftop, standing on ground line y
+    const c = OLD[i % OLD.length];
+    px(x, y - h, w, h, c);
+    if (peak) for (let k = 1; k <= Math.floor(w / 2); k++) px(x + k - 1, y - h - k, w - 2 * k + 2, 1, shade(c, 0.8));
+    else px(x, y - h, w, 1, shade(c, 0.8));
+    for (let wy = y - h + 3; wy < y - 2; wy += 4) for (let wx = x + 2; wx < x + w - 2; wx += 4)
+      px(wx, wy, 1, 2, night && hash(`${x}:${wy}:${wx}`) % 3 === 0 ? '#B8A060' : shade(c, 0.6));
+  };
   const park = (x, y, season) => { // two trees and a bench
     tree(x, season, y); tree(x + 10, season, y);
     px(x + 5, y - 2, 5, 1, '#6B4A2B'); px(x + 5, y - 1, 1, 1, '#6B4A2B'); px(x + 9, y - 1, 1, 1, '#6B4A2B');
@@ -366,9 +376,11 @@
     // the sky opens up as the city rises: it starts just above the rooftops and grows with the tallest tower
     const skyline = Math.max(0, ...lots.map((l) => GROUND - topOf(l)));
     const focus = current(timer, Date.now());
-    const skyTop = Math.max(0, GROUND - skyline - (focus ? 75 : 30)); // a running timer keeps room for the sky clock
+    const skyTop = BG ? 0 : Math.max(0, GROUND - skyline - (focus ? 75 : 30)); // a running timer keeps room for the sky clock
     if (SKY) {
       ctx.globalAlpha = SKY_ALPHA; sky(skyTop, phase, weather, t); ctx.globalAlpha = 1;
+    }
+    if (SKY && !BG) {
       const fade = ctx.createLinearGradient(0, skyTop, 0, skyTop + 40); // melt the sky's top edge into the camera, no hard line
       fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = fade; ctx.fillRect(0, skyTop, WIDTH, 40);
@@ -410,6 +422,7 @@
       });
       if (STACKABLE.has(l.kind) && complete(l)) roofCap(x, topOf(l), l.kind, t);
     };
+    oldTown(WIDTH - 16, nowDate.toLocaleDateString('en-CA'), lots).forEach((b, i) => oldHouse({ ...b, x: 8 + b.x }, GROUND - BACK, phase !== 'day', i));
     lots.filter((l) => l.row === 'back').forEach(drawLot);
     // light haze over the back row: depth, like towers seen across water
     ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(150,170,205,0.22)'; ctx.fillRect(0, 0, WIDTH, GROUND);

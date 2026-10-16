@@ -42,14 +42,16 @@ export type Lot = { kind: Kind; id: string; done: boolean; at: number; row: Row;
 const FRONT: ReadonlySet<Kind> = new Set(['park', 'pool', 'fountain', 'shop', 'house', 'arena', 'ferris']);
 export const rowOf = (k: Kind): Row => (FRONT.has(k) ? 'front' : 'back');
 
-// The k-th lot in a row aims at a golden-ratio spot (mid, left, right, ...) so the city fills evenly,
-// and takes the free spot nearest to it. Lots are placed in task order, so a new one never moves the old.
-const PHI = (Math.sqrt(5) - 1) / 2;
-const place = (taken: readonly Lot[], w: number, k: number, width: number): number | null => {
-  const want = Math.round(Math.min(width - w, Math.max(0, ((0.5 + k * PHI) % 1) * width - w / 2)));
+// Each lot rolls its own spot anywhere along the street (seeded by its task, so it never moves once placed)
+// and takes the free spot nearest to it, preferring spots the other row doesn't stand in front of or behind.
+const place = (taken: readonly Lot[], other: readonly Lot[], w: number, seed: string, width: number): number | null => {
+  const want = (hash(seed) % 1000) / 1000 * (width - w);
   const fits = (x: number) => x >= 0 && x + w <= width && taken.every((l) => x + w + GAP <= l.x || x >= l.x + l.w + GAP);
-  const spots = [want, 0, width - w, ...taken.flatMap((l) => [l.x + l.w + GAP, l.x - GAP - w])].filter(fits);
-  return spots.length ? spots.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)) : null;
+  const hidden = (x: number) => other.some((l) => x < l.x + l.w && l.x < x + w);
+  const edges = [...taken.flatMap((l) => [l.x + l.w + GAP, l.x - GAP - w]), ...other.flatMap((l) => [l.x + l.w, l.x - w])];
+  const spots = [Math.round(want), 0, width - w, ...edges].filter(fits);
+  const cost = (x: number) => Math.abs(x - want) + (hidden(x) ? width : 0);
+  return spots.length ? spots.reduce((a, b) => (cost(b) < cost(a) ? b : a)) : null;
 };
 
 // Blank city → each task takes a lot in its row (scaffolding until done).
@@ -77,8 +79,7 @@ export const cityLayout = (town: Town, width: number): Lot[] => {
   for (const it of items) {
     if (it.id === FOCUS_ID && !shown.has(it)) continue;
     const { id, done, kind, at } = it, [w, h] = SIZE[kind], row = rowOf(kind);
-    const inRow = lots.filter((l) => l.row === row);
-    const x = place(inRow, w, inRow.length, width);
+    const x = place(lots.filter((l) => l.row === row), lots.filter((l) => l.row !== row), w, `${id}:${at}`, width);
     if (x !== null) { lots.push({ kind, id, done, at, row, x, w, h, storeys: [] }); continue; }
     if (id === FOCUS_ID) continue; // landmarks never become storeys
     const street = lots.filter((l) => l.id !== FOCUS_ID), towers = street.filter((l) => STACKABLE.has(l.kind));
@@ -103,3 +104,18 @@ export const farRow = (width: number, n: number, seed: string) =>
     const w = 6 + (r('w') % 9);
     return { x: r('x') % (width - w + 1), w, k: 0.4 + (r('k') % 61) / 100 };
   });
+
+// The old town: low rooftops that cover the whole street from the start of the day, a new layout each day,
+// a little taller toward the core. New towers in the back row replace the houses they stand on.
+export type House = { x: number; w: number; h: number; peak: boolean };
+export const oldTown = (width: number, seed: string, lots: readonly Lot[]): House[] => {
+  const houses: House[] = [];
+  for (let x = 0, i = 0; x < width; i++) {
+    const r = (s: string) => hash(`${seed}:old${i}:${s}`);
+    const w = Math.min(width - x, 8 + (r('w') % 9)), core = 1 - Math.abs(x + w / 2 - width / 2) / (width / 2);
+    houses.push({ x, w, h: Math.min(14, 5 + (r('h') % 5) + Math.round(5 * core)), peak: r('p') % 3 === 0 });
+    x += w + (r('g') % 4);
+  }
+  const back = lots.filter((l) => l.row === 'back');
+  return houses.filter((b) => back.every((l) => b.x + b.w + GAP <= l.x || b.x >= l.x + l.w + GAP));
+};

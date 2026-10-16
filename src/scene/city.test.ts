@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cityLayout, farRow, FOCUS_ID, nameOf, GAP, LANDMARKS, landmarkFor, pickKind, POOL, SIZE, STACKABLE, streetLife, type Kind } from './city.ts';
+import { cityLayout, farRow, oldTown, FOCUS_ID, nameOf, GAP, LANDMARKS, landmarkFor, pickKind, POOL, SIZE, STACKABLE, streetLife, type Kind } from './city.ts';
 import type { Floor, Town } from '../town.ts';
 
 const fl = (kind: Kind, at: number, done = false): Floor => ({ task: `t${at}`, done, kind, at });
@@ -25,11 +25,17 @@ describe('cityLayout', () => {
     expect(lots.map((l) => [l.kind, l.row])).toEqual([['park', 'front'], ['office', 'back'], ['pool', 'front'], ['hospital', 'back']]);
   });
 
-  it('spreads lots across the whole city instead of packing them from one end', () => {
-    const lots = cityLayout({ a: { name: 'a', floors: [1, 2, 3].map((at) => fl('office', at)) } }, 400);
-    expect(lots[0]!.x + lots[0]!.w / 2).toBeCloseTo(200, -1); // first one goes mid-city
-    const xs = lots.map((l) => l.x);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(200);
+  it('scatters lots across the whole city, not just the core', () => {
+    const lots = cityLayout({ a: { name: 'a', floors: Array.from({ length: 8 }, (_, i) => fl('office', 1_790_000_000_000 + i * 60_000)) } }, 480);
+    const mid = lots.map((l) => l.x + l.w / 2);
+    expect(mid.some((m) => m < 160) && mid.some((m) => m > 320)).toBe(true); // reaches both outer thirds
+  });
+
+  it('keeps a new lot out from behind the other row while there is room', () => {
+    const floors = Array.from({ length: 10 }, (_, i) => fl(i % 2 ? 'office' : 'park', 1_790_000_000_000 + i * 60_000));
+    const lots = cityLayout({ a: { name: 'a', floors } }, 480);
+    const hidden = lots.some((a) => lots.some((b) => a.row !== b.row && a.x < b.x + b.w && b.x < a.x + a.w));
+    expect(hidden).toBe(false);
   });
 
   it('never overlaps within a row, stays inside the city, and a new task never moves earlier lots', () => {
@@ -110,6 +116,27 @@ describe('farRow', () => {
     expect(more.slice(0, 5)).toEqual(few);
     expect(more.every((f) => f.x >= 0 && f.x + f.w <= 300 && f.k > 0 && f.k <= 1)).toBe(true);
     expect(farRow(300, 5, '2026-10-14')).not.toEqual(few);
+  });
+});
+
+describe('oldTown', () => {
+  const lot = (x: number, w: number, row: 'front' | 'back') => ({ kind: 'office' as const, id: 'a', done: true, at: 1, row, x, w, h: 16, storeys: [] });
+
+  it('covers the whole width with low houses from the start, a new town each day', () => {
+    const town = oldTown(400, '2026-10-14', []);
+    expect(town.every((b) => b.x >= 0 && b.x + b.w <= 400 && b.h <= 14)).toBe(true);
+    const gaps = town.slice(1).map((b, i) => b.x - town[i]!.x - town[i]!.w);
+    expect(Math.max(town[0]!.x, 400 - town.at(-1)!.x - town.at(-1)!.w, ...gaps)).toBeLessThanOrEqual(4);
+    expect(oldTown(400, '2026-10-14', [])).toEqual(town);
+    expect(oldTown(400, '2026-10-15', [])).not.toEqual(town);
+  });
+
+  it('makes way where new towers rise, not behind the riverfront', () => {
+    const all = oldTown(400, 'd', []);
+    const left = oldTown(400, 'd', [lot(100, 20, 'back'), lot(300, 20, 'front')]);
+    expect(left.some((b) => b.x < 120 + GAP && b.x + b.w + GAP > 100)).toBe(false);
+    expect(left.length).toBeLessThan(all.length);
+    expect(left.filter((b) => b.x < 320 && b.x + b.w > 300)).toEqual(all.filter((b) => b.x < 320 && b.x + b.w > 300));
   });
 });
 
