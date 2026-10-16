@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catRoof, drift, phaseAt, phaseFromSun, seasonOf, weatherOn, celestial } from './ambient.ts';
+import { catRoof, drift, phaseAt, phaseFromSun, seasonOf, weatherOn, celestial, project, carrier } from './ambient.ts';
 
 describe('phaseAt (local hour)', () => {
   it.each([
@@ -85,4 +85,22 @@ describe('celestial', () => {
     expect(celestial(24 * H, sun)).toEqual({ body: 'moon', f: 0.5 }); // midnight, after sunset
     expect(celestial(0, sun)).toEqual({ body: 'moon', f: 0.5 }); // same midnight, seen from before sunrise
   });
+});
+
+describe('project (sky panorama: north at both edges, south in the middle)', () => {
+  const box = { width: 360, top: 0, bottom: 90 };
+  it('maps azimuth across and altitude up', () => {
+    expect(project({ az: 180, alt: 0 }, box)).toEqual({ x: 180, y: 90 });
+    expect(project({ az: 90, alt: 45 }, box)).toEqual({ x: 90, y: 45 });
+    expect(project({ az: 270, alt: 90 }, box)).toEqual({ x: 270, y: 0 });
+  });
+});
+
+describe('carrier (what the focus timer rides)', () => {
+  const up = { az: 100, alt: 20 }, down = { az: 100, alt: -5 };
+  const stars = [{ name: 'dim', az: 10, alt: 30, mag: 2 }, { name: 'Vega', az: 280, alt: 40, mag: 0 }];
+  it('the sun when it is up', () => expect(carrier({ sun: up, moon: up, stars })).toEqual({ body: 'sun', ...up }));
+  it('else the moon when it is up', () => expect(carrier({ sun: down, moon: up, stars })).toEqual({ body: 'moon', ...up }));
+  it('else the brightest star in view', () => expect(carrier({ sun: down, moon: down, stars })).toEqual({ body: 'star', az: 280, alt: 40 }));
+  it('nothing when the sky is empty', () => expect(carrier({ sun: down, moon: down, stars: [] })).toBeNull());
 });

@@ -8,7 +8,7 @@
 </style>
 <canvas width="480" height="270"></canvas>
 <script type="module">
-  import { catRoof, celestial, drift, hash, phaseAt, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
+  import { carrier, catRoof, celestial, drift, hash, phaseAt, project, seasonOf, weatherOn } from '/lib/scene/ambient.ts';
   import { stepWalker } from '/lib/scene/crowd.ts';
   import { cityLayout, farRow, oldTown, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
   import { current } from '/lib/focus.ts';
@@ -220,11 +220,27 @@
   };
 
   // --- ambient -------------------------------------------------------------
-  const sky = (top, phase, weather, t) => {
+  const line = (a, b, color) => { // 1px dotted pixel line
+    const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    for (let i = 0; i <= n; i += 2) px(Math.round(a.x + ((b.x - a.x) * i) / n), Math.round(a.y + ((b.y - a.y) * i) / n), 1, 1, color);
+  };
+  // real stars (state.sky): constellation figures faint, bright stars bigger; dusk/dawn shows only the brightest
+  const realStars = (box, phase, t) => {
+    const pts = realSky.stars.map((s) => ({ ...project(s, box), mag: s.mag }));
+    if (phase === 'night') realSky.lines.forEach(([a, b]) => line(pts[a], pts[b], 'rgba(190,205,255,0.22)'));
+    pts.forEach((p, i) => {
+      if (phase !== 'night' && p.mag > 1) return;
+      if (p.mag < 1.5 && (Math.floor(t / 1500) + i) % 11 === 0) return; // bright ones twinkle gently
+      if (p.mag < 0.5) { px(p.x - 1, p.y, 3, 1, '#DDE6FF'); px(p.x, p.y - 1, 1, 3, '#DDE6FF'); }
+      px(p.x, p.y, 1, 1, p.mag < 2.5 ? '#FFFFFF' : '#B8C4E8');
+    });
+  };
+  const sky = (top, phase, weather, t, box) => {
     const g = ctx.createLinearGradient(0, top, 0, GROUND);
     g.addColorStop(0, SKIES[phase][0]); g.addColorStop(1, SKIES[phase][1]);
     ctx.fillStyle = g; ctx.fillRect(0, top, WIDTH, GROUND - top);
-    if (phase === 'night') {
+    if (realSky && phase !== 'day') realStars(box, phase, t);
+    else if (phase === 'night') {
       for (let i = 0; i < 40; i++) {
         const sx = hash('sx' + i) % WIDTH, sy = top + (hash('sy' + i) % (GROUND - top - 20));
         if ((Math.floor(t / 1500) + i) % 9) px(sx, sy, 1, 1, '#FFFFFF'); // gentle twinkle
@@ -290,9 +306,20 @@
   const disc = (cx, cy, r, color) => {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r + r) px(cx + dx, cy + dy, 1, 1, color);
   };
-  const skyClock = (body, x, y, c, t) => {
+  // phase 0 new → 0.5 full → 1; waxing lit on the right (northern hemisphere), the dark side faintly visible
+  const moon = (x, y, phase) => {
+    if (phase == null) { disc(x, y, 6, '#E8E4D0'); px(x - 2, y - 2, 2, 2, '#C8C4B0'); px(x + 2, y + 1, 2, 2, '#C8C4B0'); px(x - 1, y + 3, 1, 1, '#C8C4B0'); return; }
+    const r = 6, k = Math.cos(2 * Math.PI * phase);
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy > r * r + r) continue;
+      const u = dx / Math.sqrt(r * r + r - dy * dy), lit = phase < 0.5 ? u > k : -u > k;
+      px(x + dx, y + dy, 1, 1, lit ? ((dx + dy) % 5 === 0 && Math.abs(dx) < 4 ? '#C8C4B0' : '#E8E4D0') : 'rgba(40,46,80,0.55)');
+    }
+  };
+  const skyClock = (body, x, y, c, t, moonPhase) => {
     if (body === 'sun') { disc(x, y, 6, '#FFD27A'); disc(x - 1, y - 1, 4, '#FFE38A'); }
-    else { disc(x, y, 6, '#E8E4D0'); px(x - 2, y - 2, 2, 2, '#C8C4B0'); px(x + 2, y + 1, 2, 2, '#C8C4B0'); px(x - 1, y + 3, 1, 1, '#C8C4B0'); }
+    else if (body === 'moon') moon(x, y, moonPhase);
+    else { px(x - 2, y, 5, 1, '#FFFFFF'); px(x, y - 2, 1, 5, '#FFFFFF'); } // the brightest star
     if (!c) return;
     const left = c.leftMs / (c.phase.min * 60_000), color = c.phase.kind === 'focus' ? '#FFF1C1' : '#8FD18F';
     for (let k = 0; k < 44; k++) { // ring empties clockwise from the top as the block runs down
@@ -339,7 +366,7 @@
   };
 
   // --- state ---------------------------------------------------------------
-  let town = {}, lots = [], builders = [], sunPhase = null, timer = null, sunTimes = null, seenDone = null;
+  let town = {}, lots = [], builders = [], sunPhase = null, timer = null, sunTimes = null, realSky = null, seenDone = null;
   const pieceKey = (id, at) => `${id}:${at}`;
   const walkers = new Map();   // id -> Walker
   const doneCounts = new Map(); // id -> finished floors, to spot a fresh !done and jump
@@ -358,7 +385,7 @@
       ...(l.done ? [pieceKey(l.id, l.at)] : []), ...l.storeys.filter((s) => s.done).map((s) => pieceKey(s.id, s.at))]));
     if (seenDone) for (const k of doneNow) if (!seenDone.has(k)) reveals.set(k, Date.now());
     seenDone = doneNow;
-    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null; sunTimes = msg.sun ?? null;
+    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null; sunTimes = msg.sun ?? null; realSky = msg.sky ?? null;
   };
 
   let last = performance.now();
@@ -377,8 +404,10 @@
     const skyline = Math.max(0, ...lots.map((l) => GROUND - topOf(l)));
     const focus = current(timer, Date.now());
     const skyTop = BG ? 0 : Math.max(0, GROUND - skyline - (focus ? 75 : 30)); // a running timer keeps room for the sky clock
+    const highY = skyTop + 12, lowY = Math.max(highY, GROUND - skyline - 32);
+    const skyBox = { width: WIDTH, top: highY, bottom: lowY }; // horizon sits just above the rooftops
     if (SKY) {
-      ctx.globalAlpha = SKY_ALPHA; sky(skyTop, phase, weather, t); ctx.globalAlpha = 1;
+      ctx.globalAlpha = SKY_ALPHA; sky(skyTop, phase, weather, t, skyBox); ctx.globalAlpha = 1;
     }
     if (SKY && !BG) {
       const fade = ctx.createLinearGradient(0, skyTop, 0, skyTop + 40); // melt the sky's top edge into the camera, no hard line
@@ -398,11 +427,17 @@
     ctx.globalAlpha = 1;
     // sun by day, moon by night, crossing the sky on local time (real sunrise/sunset with SUN_LAT/SUN_LON)
     const at = (h) => new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), h).getTime();
-    const { body, f } = celestial(Date.now(), sunTimes ?? { sunrise: at(6), sunset: at(20) });
-    const highY = skyTop + 12, lowY = Math.max(highY, GROUND - skyline - 32);
-    const clockX = 20 + f * (WIDTH - 40);
-    const shadeRight = f < 0.5; // buildings show their shaded side away from the sun (or moon)
-    skyClock(body, clockX, lowY - Math.sin(Math.PI * f) * (lowY - highY), focus, t);
+    let shadeRight; // buildings show their shaded side away from the light
+    if (realSky) { // real positions: the moon wherever it is, the timer on the brightest thing up (sun, moon, star)
+      const c = carrier(realSky), edge = (p) => ({ x: Math.min(WIDTH - 20, Math.max(20, p.x)), y: p.y });
+      if (realSky.moon.alt > 0 && c?.body !== 'moon') { const m = project(realSky.moon, skyBox); moon(m.x, m.y, realSky.moon.phase); }
+      shadeRight = (c?.az ?? 180) < 180; // light from the east
+      if (c) { const p = edge(project(c, skyBox)); skyClock(c.body, p.x, p.y, focus, t, realSky.moon.phase); }
+    } else {
+      const { body, f } = celestial(Date.now(), sunTimes ?? { sunrise: at(6), sunset: at(20) });
+      shadeRight = f < 0.5;
+      skyClock(body, 20 + f * (WIDTH - 40), lowY - Math.sin(Math.PI * f) * (lowY - highY), focus, t);
+    }
     // the landmark in progress rises with the focus countdown
     const progress = focus?.phase.kind === 'focus' ? 1 - focus.leftMs / (focus.phase.min * 60_000) : 1;
     ctx = layer; ctx.clearRect(0, 0, WIDTH, 270);

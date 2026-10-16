@@ -41,3 +41,17 @@ export const celestial = (t: number, { sunrise, sunset }: { sunrise: number; sun
   const dusk = t >= sunset ? sunset : sunset - DAY, dawn = dusk === sunset ? sunrise + DAY : sunrise;
   return { body: 'moon' as const, f: (t - dusk) / (dawn - dusk) };
 };
+
+// The sky as a panorama: azimuth runs across (north at both edges, east left of centre, south in the middle),
+// altitude runs up from the horizon (bottom) to overhead (top).
+type Pos = { az: number; alt: number };
+export const project = ({ az, alt }: Pos, { width, top, bottom }: { width: number; top: number; bottom: number }) =>
+  ({ x: Math.round((az / 360) * width), y: Math.round(bottom - (alt / 90) * (bottom - top)) });
+
+// The focus timer rides the brightest thing up: the sun, else the moon, else the brightest star.
+export const carrier = ({ sun, moon, stars }: { sun: Pos; moon: Pos; stars: (Pos & { mag: number })[] }) => {
+  if (sun.alt > 0) return { body: 'sun' as const, az: sun.az, alt: sun.alt };
+  if (moon.alt > 0) return { body: 'moon' as const, az: moon.az, alt: moon.alt };
+  const star = stars.filter((s) => s.alt > 0).sort((a, b) => a.mag - b.mag)[0];
+  return star ? { body: 'star' as const, az: star.az, alt: star.alt } : null;
+};

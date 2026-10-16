@@ -11,6 +11,7 @@ import { builtToday, finishedSince, handleCommand, newDay, stepLandmark, type To
 import { startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
+import { skyAt } from './scene/sky.ts';
 import { FOCUS_ID, nameOf } from './scene/city.ts';
 import { announce, current, handleTimer, PRESETS, type Current, type Timer } from './focus.ts';
 import { canRequest, nowPlaying, parseMusic } from './music.ts';
@@ -80,7 +81,8 @@ const sunTimes = () => {
   return { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk };
 };
 const sunPhase = () => { const t = sunTimes(); return t && phaseFromSun(Date.now(), t); };
-const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), sun: sunTimes(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+const realSky = () => (sunTimes() ? skyAt(new Date(), { lat, lon }) : undefined); // sun, moon and stars where they really are
+const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
