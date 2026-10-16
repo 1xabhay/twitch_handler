@@ -17,6 +17,21 @@ const LEAVES = { spring: '#8FD18F', summer: '#3E8E41', autumn: '#D9822B', winter
 const W = 16;
 const glass = C.lit; // finished = lights on, day and night: the "done" signal next to dark scaffolding
 
+export const shade = (hex: string, k: number) =>
+  '#' + [1, 3, 5].map((i) => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join('');
+
+// The old town: low rooftops that fill the street before anything is built (layout from oldTown in city.ts).
+export type House = { x: number; w: number; h: number; peak: boolean };
+const OLD = ['#7A6E80', '#8A7466', '#6E7A78', '#86786A']; // muted, so new buildings stand out
+const oldHouse = (p: Paint, { x, w, h, peak }: House, y: number, night: boolean, i: number) => { // y = ground line
+  const c = OLD[i % OLD.length]!;
+  p(x, y - h, w, h, c);
+  if (peak) for (let k = 1; k <= Math.floor(w / 2); k++) p(x + k - 1, y - h - k, w - 2 * k + 2, 1, shade(c, 0.8));
+  else p(x, y - h, w, 1, shade(c, 0.8));
+  for (let wy = y - h + 3; wy < y - 2; wy += 4) for (let wx = x + 2; wx < x + w - 2; wx += 4)
+    p(wx, wy, 1, 2, night && hash(`${x}:${wy}:${wx}`) % 3 === 0 ? '#B8A060' : shade(c, 0.6));
+};
+
 export const tree = (p: Paint, x: number, y: number, season: Season) => {
   p(x + 2, y - 4, 1, 4, '#6B4A2B');
   const leaves = LEAVES[season];
@@ -158,7 +173,7 @@ const balloon = (p: Paint, x: number, y: number, _t: number) => {
   p(x + 1, y + 6, 1, 2, '#6B4A2B'); p(x + 4, y + 6, 1, 2, '#6B4A2B'); p(x + 2, y + 8, 2, 2, '#6B4A2B');
 };
 
-const BASE = { lots: LOTS, storey: STOREY, roof, body: BODY, boat, cart, balloon, water: { day: '#2E4E70', night: '#141C33' } };
+const BASE = { lots: LOTS, storey: STOREY, roof, oldHouse, body: BODY, boat, cart, balloon, water: { day: '#2E4E70', night: '#141C33' } };
 export type Kit = typeof BASE;
 export type KitPatch = { [K in keyof Kit]?: Kit[K] extends Record<string, unknown> ? Partial<Kit[K]> : Kit[K] };
 

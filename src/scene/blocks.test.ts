@@ -24,6 +24,12 @@ const fits = (k: Kit) => {
       expect(y, kind).toBeGreaterThanOrEqual(200 - h - SLACK - 12); // smoke rises a bit higher
     }
   }
+  for (const peak of [true, false]) { // old-town rooftops stay inside their footprint (peaks rise up to w/2)
+    const { p, rects } = record(), b = { x: 100, w: 12, h: 9, peak };
+    k.oldHouse(p, b, 200, true, 3);
+    expect(rects.length).toBeGreaterThan(0);
+    for (const [x, y, rw, rh] of rects) expect([x >= 100, x + rw <= 112, y + rh <= 200, y >= 200 - 9 - 6 - 1], `old ${peak}`).toEqual([true, true, true, true]);
+  }
   for (const kind of STACKABLE) {
     const { p, rects } = record();
     k.storey[kind]!(p, 100, 200, S);
@@ -35,6 +41,9 @@ describe('building blocks', () => {
   it('the base kit draws every kind inside its lot', () => fits(kit()));
   it('every theme reskins, never resizes: its blocks fit the same lots', () => {
     for (const theme of Object.values(THEMES)) fits(kit(theme.kit));
+  });
+  it('every theme reskins the old town too: it is what the street looks like before anything is built', () => {
+    for (const theme of Object.values(THEMES)) expect(kit(theme.kit).oldHouse).not.toBe(kit().oldHouse);
   });
   it('a theme overrides only the blocks it names', () => {
     const base = kit(), themed = kit({ lots: { park: base.lots.pool } });

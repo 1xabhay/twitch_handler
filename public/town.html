@@ -12,7 +12,7 @@
   import { stepWalker } from '/lib/scene/crowd.ts';
   import { cityLayout, farRow, oldTown, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
   import { current } from '/lib/focus.ts';
-  import { C, kit, tree } from '/lib/scene/blocks.ts';
+  import { C, kit, shade, tree } from '/lib/scene/blocks.ts';
   import { THEMES, settled, steer, tide } from '/lib/scene/theme.ts';
   import { evaluate, STREET, streetInputs } from '/lib/scene/circuit.ts';
 
@@ -80,7 +80,6 @@
   };
   // --- depth: a side wall and roof edge slanting back on the side away from the sun ------
   const D = 3; // how far back the box goes (px)
-  const shade = (hex, k) => '#' + [1, 3, 5].map((i) => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join('');
   const depth = (x, base, h, body, done, right, night) => {
     const [dx, w, , wall] = body, c = done ? wall : AIRY, top = base - h, dir = right ? 1 : -1;
     for (let i = 1; i <= D; i++) px(x + dx + dir * i, top - i, w, 1, shade(c, 0.85)); // roof edge
@@ -91,15 +90,7 @@
     }
   };
 
-  const OLD = ['#7A6E80', '#8A7466', '#6E7A78', '#86786A']; // muted, so new buildings stand out
-  const oldHouse = ({ x, w, h, peak }, y, night, i) => { // old-town rooftop, standing on ground line y
-    const c = OLD[i % OLD.length];
-    px(x, y - h, w, h, c);
-    if (peak) for (let k = 1; k <= Math.floor(w / 2); k++) px(x + k - 1, y - h - k, w - 2 * k + 2, 1, shade(c, 0.8));
-    else px(x, y - h, w, 1, shade(c, 0.8));
-    for (let wy = y - h + 3; wy < y - 2; wy += 4) for (let wx = x + 2; wx < x + w - 2; wx += 4)
-      px(wx, wy, 1, 2, night && hash(`${x}:${wy}:${wx}`) % 3 === 0 ? '#B8A060' : shade(c, 0.6));
-  };
+
   // --- ambient -------------------------------------------------------------
   const line = (a, b, color) => { // 1px dotted pixel line
     const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
@@ -326,7 +317,7 @@
       });
       if (STACKABLE.has(l.kind) && complete(l)) k.roof(px, x, topOf(l), l.kind, t);
     };
-    oldTown(WIDTH - 16, nowDate.toLocaleDateString('en-CA'), lots).forEach((b, i) => oldHouse({ ...b, x: 8 + b.x }, GROUND - BACK, phase !== 'day', i));
+    oldTown(WIDTH - 16, nowDate.toLocaleDateString('en-CA'), lots).forEach((b, i) => kitAt(8 + b.x).oldHouse(px, { ...b, x: 8 + b.x }, GROUND - BACK, night, i));
     lots.filter((l) => l.row === 'back').forEach(drawLot);
     // light haze over the back row: depth, like towers seen across water
     ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(150,170,205,0.22)'; ctx.fillRect(0, 0, WIDTH, GROUND);

@@ -19,7 +19,7 @@ The preview shows a finished demo city with every building kind. Type another th
 
 1. **Copy** `src/scene/themes/onepiece.ts` to `src/scene/themes/<id>.ts` (`<id>` is lowercase, one word, it's what mods type: `!theme <id>`).
 2. **Register** it in [`src/scene/theme.ts`](../src/scene/theme.ts): `import { yours } from './themes/yours.ts'` and add it to `THEMES`.
-3. **Draw**: override only the blocks you want (see the reference below). Delete what you don't change; the plain block is used instead.
+3. **Draw**: start with `oldHouse` (it's what viewers see first: early in the day every building is still scaffolding, which is never themed), then override the other blocks you want (see the reference below). Delete what you don't change; the plain block is used instead.
 4. **Check**: `npm test` (the block test paints every theme and fails if a sprite leaves its lot), `npm run typecheck`, and look at it in the preview at `day` and `night`.
 5. **Open a PR** with a day and a night screenshot.
 
@@ -52,6 +52,7 @@ type Theme = {
     lots?:    { [kind]: (p, x, y, s) => void };   // finished building; x = left edge, y = ground line, draw upward
     storey?:  { office?, apartment? };            // one 16×8 storey, x/y = its top-left (towers stack these)
     roof?:    (p, x, y, kind, t) => void;         // cap on a finished office/apartment tower, y = its roof line
+    oldHouse?: (p, { x, w, h, peak }, y, night, i) => void; // old-town rooftops: the whole street before anything is built. Theme this first!
     body?:    { [kind]: [dx, w, h, wallColour] | undefined }; // box behind a solid building for the 3D side wall; undefined = open shape
     boat?:    (p, x, y, color, dir, night) => void; // river boats (dir 1 = sailing right)
     cart?:    (p, x, y) => void;                  // food cart, y = ground line

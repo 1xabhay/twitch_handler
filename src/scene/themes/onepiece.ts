@@ -1,5 +1,6 @@
 // Grand Line: a One Piece nod. Places and props only, no characters (fan homage, nothing copied).
-import { C, type Block, type Paint } from '../blocks.ts';
+import { C, shade, type Block, type House, type Paint } from '../blocks.ts';
+import { hash } from '../ambient.ts';
 import type { Theme } from '../theme.ts';
 import { FH, type Kind } from '../city.ts';
 
@@ -34,6 +35,17 @@ const roger = (p: Paint, cx: number, y: number, bone: string) => {
 const tangerine = (p: Paint, x: number, y: number) => {
   p(x + 2, y - 4, 1, 4, '#6B4A2B'); p(x, y - 9, 5, 5, '#3E8E41');
   p(x + 1, y - 8, 1, 1, orange); p(x + 3, y - 7, 1, 1, orange); p(x + 1, y - 6, 1, 1, orange);
+};
+
+// a harbour village before anything's built: whitewash and pastel walls, terracotta roofs, blue domes, arched windows
+const WALLS = ['#E8DCC0', '#E6C9A8', '#CFE0E3', '#F0D7C0'];
+const oldHouse = (p: Paint, { x, w, h, peak }: House, y: number, night: boolean, i: number) => {
+  const c = WALLS[i % WALLS.length]!;
+  p(x, y - h, w, h, c);
+  if (peak) for (let k = 1; k <= Math.floor(w / 2); k++) p(x + k - 1, y - h - k, w - 2 * k + 2, 1, k === 1 ? '#8C3E2A' : '#B8553A');
+  else { p(x, y - h, w, 1, sea); if (w >= 8) { p(x + Math.floor(w / 2) - 2, y - h - 2, 4, 2, sea); p(x + Math.floor(w / 2) - 1, y - h - 3, 2, 1, sea); } }
+  for (let wy = y - h + 3; wy < y - 2; wy += 4) for (let wx = x + 2; wx < x + w - 2; wx += 4)
+    p(wx, wy, 1, 2, night && hash(`${x}:${wy}:${wx}`) % 3 === 0 ? C.lit : shade(sea, 0.8));
 };
 
 const lots: Partial<Record<Kind, Block>> = {
@@ -86,7 +98,7 @@ export const onepiece: Theme = {
     shop: 'meat shop', park: 'tangerine grove', office: 'canal house', apartment: 'canal flat',
   },
   kit: {
-    lots, storey, roof,
+    lots, storey, roof, oldHouse,
     body: { office: [0, 16, 16, '#E8DCC0'], apartment: [0, 16, 16, '#D98A5A'], shop: [0, 16, 10, '#D9B48A'], clocktower: undefined },
     boat: (p, x, y, color, dir, night) => { // pirate sloop, black sail
       p(x, y, 10, 2, '#6B4A2B'); p(x, y, 10, 1, color); p(x + 1, y + 2, 8, 1, C.dark);
