@@ -1,5 +1,6 @@
 import type { Chatter } from './greet.ts';
 import { FOCUS_ID, kindOfFloor, landmarkFor, nameOf, pickKind, type Kind } from './scene/city.ts';
+import { E } from './emotes.ts';
 
 export type Floor = { task: string; done: boolean; kind?: Kind; at?: number; doneAt?: number }; // what it builds, when opened/finished
 export type Building = { name: string; floors: Floor[] };
@@ -67,7 +68,7 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
       const bad = words.filter((_, i) => !isOpen(ks[i] ?? null));
       if (bad.length) return keep(`nothing open at ${bad.map((b) => `#${b}`).join(' ')}. !tasks shows yours`);
       const next = floors.map((f, i) => (ks.includes(i + 1) ? { ...f, done: true, doneAt: now } : f));
-      return save(next, `${ks.map((k) => `#${k}`).join(', ')} done: ${ks.map((k) => what(k!)).join(', ')} ${ks.length === 1 ? 'is' : 'are'} built, lights on 💡`);
+      return save(next, `${ks.map((k) => `#${k}`).join(', ')} done: ${ks.map((k) => what(k!)).join(', ')} ${ks.length === 1 ? 'is' : 'are'} built, lights on ${E.lit}`);
     }
     case 'where': {
       if (!floors.length) return keep(`nothing built yet. !task <thing> to start 🏗️`);

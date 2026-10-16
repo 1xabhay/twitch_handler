@@ -15,6 +15,11 @@ describe('speakable', () => {
     expect(speakable('Bob', 'look https://example.com/a?b=c nice')).toBe('Bob says: look a link nice');
   });
 
+  it('skips channel emotes, and stays quiet for an emote-only message', () => {
+    expect(speakable('Bob', 'done! heyisamLit heyisamLit')).toBe('Bob says: done!');
+    expect(speakable('Bob', 'heyisamBrick')).toBeNull();
+  });
+
   it('cuts long messages short', () => {
     expect(speakable('Bob', 'a'.repeat(500))!.length).toBeLessThanOrEqual(220);
   });

@@ -1,3 +1,4 @@
+import { E } from './emotes.ts';
 // Focus timer for co-working streams. Research and preset rationale: docs/FOCUS.md.
 export type Kind = 'kickoff' | 'focus' | 'break' | 'lunch' | 'replan' | 'recap';
 export type Phase = { kind: Kind; min: number };
@@ -64,9 +65,9 @@ export const announce = (c: Current | null, wins: Wins = { built: 0, landmarks: 
   const mins = Math.round(c.leftMs / MIN);
   switch (c.phase.kind) {
     case 'kickoff': return `kickoff ☕ post your goals with !task, first focus block in ${mins} min`;
-    case 'focus': return `focus on 🎧 block ${c.block.n}/${c.block.of} · ${mins} min. heads down, chat stays chill`;
-    case 'break': return `${cheer(c, wins)} · ☕ ${mins} min break: ${BREAKS[c.breakNo % BREAKS.length]} skip the feeds & email`;
-    case 'lunch': return `${cheer(c, wins)} · lunch 🍜 ${mins} min, do whatever recharges you (a walk outside is great)`;
+    case 'focus': return `focus on ${E.lockin} block ${c.block.n}/${c.block.of} · ${mins} min. heads down, chat stays chill`;
+    case 'break': return `${cheer(c, wins)} · ${E.cozy} ${mins} min break: ${BREAKS[c.breakNo % BREAKS.length]} skip the feeds & email`;
+    case 'lunch': return `${cheer(c, wins)} · lunch 🍜 ${mins} min, do whatever recharges you (a walk outside is great) ${E.grass}`;
     case 'replan': return `afternoon re-plan 📝 check your list with !tasks, pick lighter work for after lunch`;
     case 'recap': return `recap 🏁 share one win in chat! unfinished buildings wait for next time`;
   }
