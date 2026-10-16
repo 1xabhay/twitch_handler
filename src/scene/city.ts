@@ -27,8 +27,8 @@ export const landmarkFor = (min: number, r: number): Kind =>
 
 // How chat says a kind: 'a water tower', or bare 'water tower' with article = false.
 const SPELLED: Partial<Record<Kind, string>> = { watertower: 'water tower', clocktower: 'clock tower', ferris: 'ferris wheel' };
-export const nameOf = (k: Kind, article = true) => {
-  const name = SPELLED[k] ?? k;
+export const nameOf = (k: Kind, article = true, names: Partial<Record<Kind, string>> = {}) => { // names: a theme's
+  const name = names[k] ?? SPELLED[k] ?? k;
   return article ? `${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name}` : name;
 };
 

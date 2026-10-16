@@ -19,6 +19,7 @@ import { spotifyClient } from './spotify.ts';
 import { handleLink } from './links.ts';
 import { speakable } from './tts.ts';
 import { raidPicks } from './raid.ts';
+import { handleTheme, parseCalendar, themeOn, THEMES, type Override } from './scene/theme.ts';
 import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
 import SunCalc from 'suncalc';
 
@@ -29,6 +30,7 @@ const VIEWERS_FILE = 'data/viewers.json';
 const TOWN_FILE = 'data/town.json';
 const TIMER_FILE = 'data/timer.json';
 const GYM_FILE = 'data/gym.json';
+const THEME_FILE = 'data/theme.json';
 const OVERLAY_PORT = 3001;
 // A missing file means "start fresh"; a corrupt one stops the bot instead of silently starting empty and overwriting it.
 const readJson = async <T>(path: string, fallback: T): Promise<T> =>
@@ -71,6 +73,11 @@ const requests: Record<string, number> = {}; // userId → last request time
 const { pending = [], doneAt = [], enabled = true } = await readJson<Partial<Gym>>(GYM_FILE, {}); // drops retired brick fields
 let gym: Gym = { pending, doneAt, enabled };
 const saveGym = (next: Gym) => { if (next === gym) return; gym = next; push(state()); void writeJson(GYM_FILE, gym); };
+// Theme days: THEMES in .env (e.g. onepiece:fri,07-22), a mod's !theme overrides today (src/scene/theme.ts).
+const calendar = parseCalendar(process.env.THEMES);
+let themeOverride = await readJson<Override>(THEME_FILE, null);
+const theme = () => themeOn(calendar, themeOverride, new Date());
+const names = () => { const id = theme(); return id ? THEMES[id]!.names : {}; };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
@@ -82,9 +89,17 @@ const sunTimes = () => {
 };
 const sunPhase = () => { const t = sunTimes(); return t && phaseFromSun(Date.now(), t); };
 const realSky = () => (sunTimes() ? skyAt(new Date(), { lat, lon }) : undefined); // sun, moon and stars where they really are
-const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: BOOT, theme: theme(), phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
-setInterval(() => push(state()), 60_000); // let quiet builders clock out
+let lastTheme = theme(); // the calendar flips at midnight: say so once (a restart on a theme day stays quiet)
+setInterval(() => { // let quiet builders clock out
+  push(state());
+  const now = theme();
+  if (now === lastTheme) return;
+  const line = now ? THEMES[now]!.hello : lastTheme ? THEMES[lastTheme]!.bye : null;
+  lastTheme = now;
+  if (line) say(line).catch((err) => console.error('theme announce failed', err));
+}, 60_000);
 // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
 const say = (text: string) => api.chat.sendChatMessageAsApp(bot, channel, text);
 // Workout rewards: one Channel Points reward per rung, created by this app so it can fulfil or refund them.
@@ -141,7 +156,7 @@ setInterval(() => { // announce each phase change; the overlay counts down on it
   // break roll call: who finished something during the focus block that just ended (a check-in, not a leaderboard)
   const finished = was?.kind === 'focus' ? finishedSince(town, Date.now() - was.min * 60_000) : [];
   void landmarkStep(was, c, true).then((opened) => {
-    say(announce(c, { ...builtToday(town), finished, opened: opened && nameOf(opened) })).catch((err) => console.error('announce failed', err));
+    say(announce(c, { ...builtToday(town), finished, opened: opened && nameOf(opened, true, names()) })).catch((err) => console.error('announce failed', err));
   });
   void saveTimer(c ? timer : null);
 }, 1000);
@@ -230,10 +245,21 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
     await startNewDay(false);
     await say('🌅 new day, clear skyline! yesterday\'s city is archived, unfinished buildings carried over. !task to start building');
   }
-  const cmd = handleCommand(town, chatter, e.messageText);
+  const cmd = handleCommand(town, chatter, e.messageText, Math.random(), Date.now(), names());
   if (cmd) await saveTown(cmd.town);
   push(state());
   if (cmd) await say(cmd.reply);
+
+  const th = handleTheme(themeOverride, calendar, { isMod }, e.messageText, Date.now());
+  if (th) {
+    if (th.override !== themeOverride) {
+      themeOverride = th.override;
+      lastTheme = theme(); // announced right here, not again by the minute check
+      push(state());
+      await writeJson(THEME_FILE, themeOverride);
+    }
+    await say(th.reply);
+  }
 
   const w = handleWorkout(gym, chatter, isMod, e.messageText);
   if (w) {

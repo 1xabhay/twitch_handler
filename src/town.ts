@@ -39,7 +39,7 @@ export const builtToday = (town: Town) => {
 export const finishedSince = (town: Town, since: number) =>
   Object.entries(town).filter(([id, b]) => id !== FOCUS_ID && b.floors.some((f) => (f.doneAt ?? -1) >= since)).map(([, b]) => b.name);
 
-export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string, rand = Math.random(), now = Date.now()) => {
+export const handleCommand = (town: Town, { userId, userName }: Chatter, text: string, rand = Math.random(), now = Date.now(), names: Partial<Record<Kind, string>> = {}) => {
   const [, cmd, rest = ''] = text.match(/^!(\w+)\s*(.*)$/s) ?? [];
   const floors = town[userId]?.floors ?? [];
   const at = (s: string) => `@${userName} ${s}`;
@@ -50,7 +50,7 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
   const openNums = floors.flatMap((f, i) => (f.done ? [] : [i + 1]));
   const n = /^\d+$/.test(rest.trim()) ? Number(rest.trim()) : null;
   const isOpen = (k: number | null): k is number => k !== null && openNums.includes(k);
-  const what = (k: number) => `the ${nameOf(kindOfFloor(userId, floors[k - 1]!), false)} for "${floors[k - 1]!.task}"`;
+  const what = (k: number) => `the ${nameOf(kindOfFloor(userId, floors[k - 1]!), false, names)} for "${floors[k - 1]!.task}"`;
 
   switch (cmd?.toLowerCase()) {
     case 'task': {
@@ -58,7 +58,7 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
       if (!task) return keep(`try: !task <what you're working on> 🔨`);
       if (openNums.length >= MAX_OPEN) return keep(`${MAX_OPEN} things under construction already 😅 !done one first`);
       const kind = pickKind(rand);
-      return save([...floors, { task, done: false, kind, at: now }], `#${floors.length + 1}: ${nameOf(kind)} is going up for "${task}" 🏗️`);
+      return save([...floors, { task, done: false, kind, at: now }], `#${floors.length + 1}: ${nameOf(kind, true, names)} is going up for "${task}" 🏗️`);
     }
     case 'done': { // !done, !done 2, !done 1 3 5
       const words = rest.trim() ? rest.trim().split(/[\s,]+/) : [];
@@ -72,7 +72,7 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
     }
     case 'where': {
       if (!floors.length) return keep(`nothing built yet. !task <thing> to start 🏗️`);
-      const list = floors.map((f) => `${nameOf(kindOfFloor(userId, f), false)}${f.done ? '' : ' (going up)'}`).join(', ');
+      const list = floors.map((f) => `${nameOf(kindOfFloor(userId, f), false, names)}${f.done ? '' : ' (going up)'}`).join(', ');
       return keep(`👇 your ${list}, marked on screen for a few seconds`);
     }
     case 'help':

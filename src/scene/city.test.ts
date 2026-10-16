@@ -146,5 +146,6 @@ describe('nameOf', () => {
     expect(nameOf('ferris')).toBe('a ferris wheel');
     expect(nameOf('office')).toBe('an office');
     expect(nameOf('arena', false)).toBe('arena');
+    expect(nameOf('clocktower', true, { clocktower: 'lighthouse' })).toBe('a lighthouse'); // a theme renames
   });
 });

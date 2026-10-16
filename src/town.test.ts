@@ -21,6 +21,10 @@ describe('handleCommand', () => {
       expect(r?.reply).toContain('1');
     });
 
+    it('says the building by its theme name when a theme is on', () => {
+      expect(handleCommand({}, sam, '!task x', 0, 42, { [POOL[0]!]: 'canal house' })?.reply).toContain('a canal house is going up');
+    });
+
     it('stacks new floors on top, with no limit', () => {
       const r = handleCommand(samWith(done('a'), open('b')), sam, '!task c');
       expect(r?.town['1']?.floors.map((f) => f.task)).toEqual(['a', 'b', 'c']);

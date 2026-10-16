@@ -12,6 +12,9 @@
   import { stepWalker } from '/lib/scene/crowd.ts';
   import { cityLayout, farRow, oldTown, FH, FOCUS_ID, STACKABLE, streetLife } from '/lib/scene/city.ts';
   import { current } from '/lib/focus.ts';
+  import { C, kit, tree } from '/lib/scene/blocks.ts';
+  import { THEMES, settled, steer, tide } from '/lib/scene/theme.ts';
+  import { evaluate, STREET, streetInputs } from '/lib/scene/circuit.ts';
 
   const screen = document.querySelector('canvas').getContext('2d');
   // the city is drawn on its own layer, then stamped onto the screen with a dark outline: readable on white or black
@@ -28,17 +31,13 @@
   ctx.canvas.style.opacity = params.get('alpha') ?? '1'; // ?alpha=0.7 → whole overlay see-through
   const BG = params.get('bg') === '1'; // ?bg=1 → full-screen backdrop: opaque sky top to bottom, for the bottom of the OBS stack
   const SKY_ALPHA = BG ? 1 : 0.5; // otherwise the sky is a faint tint over the camera; the city itself is solid
-  const C = {
-    wall: '#6B5E7A', slab: '#463D52', dark: '#22202B', lit: '#FFD27A', shine: '#FFF1C1',
-    hazard: '#F2C230', hazardDark: '#1E1E1E', scaffold: '#B08850', beacon: '#FF8A3D', garden: '#5FA55A',
-    hat: '#F2C230', vest: '#FF8A3D', skin: '#E8B796', legs: '#3A4A6B', cat: '#1E1E24',
-  };
   const SKIES = {
     night: ['#0B1026', '#1C2448'], dawn: ['#3A3F7A', '#F2A07B'], day: ['#5FA8E8', '#BFE3FF'], dusk: ['#2B2D5C', '#E8735A'],
   };
-  const LEAVES = { spring: '#8FD18F', summer: '#3E8E41', autumn: '#D9822B', winter: null };
-  const FLAGS = ['#E4572E', '#4C9AFF', '#F4F4F4', '#C77DFF', '#2EC4B6', '#FF6F91'];
   const px = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+  // building blocks: the plain kit, and each theme's blocks laid over it (src/scene/blocks.ts, src/scene/themes/)
+  const PLAIN = kit(), KITS = Object.fromEntries(Object.entries(THEMES).map(([id, th]) => [id, kit(th.kit)]));
+  const kitOf = (id) => (id && KITS[id]) || PLAIN;
 
   // --- buildings -----------------------------------------------------------
   // Under construction is airy and see-through; finished is solid and lit — the two states read by shape and mass.
@@ -51,23 +50,6 @@
     for (let i = 0; i < W; i += 4) { px(x + i, y, 2, 1, C.hazard); px(x + i + 2, y, 2, 1, C.hazardDark); }
     if (beaconOn(t, seed)) px(x + 15, y - 1, 1, 1, C.beacon);
   };
-  // one finished storey (8px) of a stackable building, top-left at x, y
-  const STOREY = {
-    office: (x, y) => { // glass curtain wall
-      px(x, y, W, FH, '#5E7A96'); px(x, y + 7, W, 1, '#46607A');
-      px(x + 1, y + 2, 14, 3, glass()); px(x + 5, y + 2, 1, 3, '#46607A'); px(x + 10, y + 2, 1, 3, '#46607A');
-    },
-    apartment: (x, y) => { // warm brick, windows with little balconies
-      px(x, y, W, FH, '#B9876A'); px(x, y + 7, W, 1, '#8C5E48');
-      for (const wx of [3, 10]) { px(x + wx, y + 2, 3, 3, glass()); px(x + wx - 1, y + 5, 5, 1, '#5A4A42'); }
-    },
-  };
-  const roofCap = (x, y, kind, t) => { // top of a finished tower: office antenna with a slow beacon, apartment roof garden
-    px(x, y - 2, W, 2, C.slab);
-    if (kind === 'office') { px(x + 11, y - 7, 1, 5, C.slab); if (Math.floor(t / 1500) % 2) px(x + 11, y - 8, 1, 1, '#E4572E'); }
-    else for (const gx of [2, 3, 5, 9, 10]) px(x + gx, y - 3, 1, 1, C.garden);
-  };
-
   const scaffoldBox = (x, y, w, h, t, seed) => { // any lot under construction, standing on ground line y
     px(x, y - h, w, h, AIRY);
     for (let i = 0; i < w; i += 6) px(x + i, y - h, 1, h, POLE);
@@ -96,99 +78,8 @@
       for (let dy = 0; dy < h; dy++) { const dx = Math.round(c - dy); if (dx >= 0 && dx < w) px(x + dx, y - h + dy, 1, 1, '#FEE761'); }
     }
   };
-  // finished SimCity-style lots, drawn from the ground line y up; shapes carry meaning, not just colour
-  const glass = () => C.lit; // finished = lights on, day and night: the "done" signal next to dark scaffolding
-  const LOTS = {
-    office: (x, y, t, night) => { STOREY.office(x, y - 16); STOREY.office(x, y - 8); px(x + 6, y - 5, 4, 5, '#9FC4E0'); },
-    apartment: (x, y, t, night) => { STOREY.apartment(x, y - 16); STOREY.apartment(x, y - 8); px(x + 7, y - 5, 3, 5, C.dark); },
-    house: (x, y, t, night) => house(x, y, night),
-    park: (x, y, t, night, season) => park(x, y, season),
-    pool: (x, y, t) => { // deck, lanes, a sun umbrella
-      px(x, y - 2, 24, 2, '#D8D0C0'); px(x + 2, y - 4, 20, 2, '#4FB3E8');
-      for (let i = 4; i < 22; i += 4) px(x + i, y - 4, 1, 1, '#F4F4F4');
-      px(x + 2 + ((Math.floor(t / 700) * 3) % 18), y - 3, 2, 1, '#BFE9FF'); // shimmer
-      px(x + 22, y - 6, 1, 4, '#C0C0C0'); px(x, y - 7, 5, 1, '#E4572E'); px(x + 2, y - 6, 1, 4, '#6B4A2B');
-    },
-    shop: (x, y, t, night) => { // striped awning, shop window, door
-      px(x, y - 10, 16, 10, '#C9A27A');
-      for (let i = 0; i < 16; i += 2) px(x + i, y - 12, 2, 2, i % 4 ? '#F4F4F4' : '#E4572E');
-      px(x + 2, y - 8, 7, 5, glass()); px(x + 11, y - 7, 3, 7, C.dark);
-    },
-    factory: (x, y, t, night) => { // sawtooth roof, smokestack with slow puffs
-      px(x, y - 12, 18, 12, '#7A6A5A');
-      for (let i = 0; i < 18; i += 6) { px(x + i, y - 13, 5, 1, '#5A4A42'); px(x + i, y - 14, 3, 1, '#5A4A42'); }
-      for (let i = 0; i < 3; i++) px(x + 2 + i * 5, y - 8, 3, 2, glass());
-      px(x + 19, y - 22, 3, 22, '#5A4A42'); px(x + 19, y - 20, 3, 1, '#E4572E');
-      for (let k = 0; k < 3; k++) {
-        const p = (t / 3000 + k / 3) % 1;
-        ctx.fillStyle = `rgba(225,225,225,${(1 - p) * 0.8})`; ctx.fillRect(Math.round(x + 20 + p * 5), Math.round(y - 25 - p * 12), 2, 2);
-      }
-    },
-    watertower: (x, y) => { // tank on legs
-      px(x + 2, y - 12, 1, 12, '#6E8796'); px(x + 9, y - 12, 1, 12, '#6E8796'); px(x + 2, y - 7, 8, 1, '#6E8796');
-      px(x + 1, y - 20, 10, 8, '#9FB8C8'); px(x + 1, y - 16, 10, 1, '#6E8796'); px(x + 2, y - 22, 8, 2, '#6E8796');
-    },
-    turbine: (x, y, t) => { // wind turbine, blades turn slowly
-      px(x + 6, y - 22, 1, 22, '#E8E8E8');
-      if (Math.floor(t / 600) % 2) { px(x + 6, y - 28, 1, 6, '#F4F4F4'); px(x + 1, y - 22, 5, 1, '#F4F4F4'); px(x + 7, y - 22, 5, 1, '#F4F4F4'); }
-      else for (let i = 1; i < 5; i++) { px(x + 6 - i, y - 22 - i, 1, 1, '#F4F4F4'); px(x + 6 + i, y - 22 - i, 1, 1, '#F4F4F4'); px(x + 6 + i, y - 22 + i, 1, 1, '#F4F4F4'); }
-    },
-    fountain: (x, y, t) => { // plaza with a bubbling fountain and two bushes
-      px(x, y - 1, 16, 1, '#B8B0A0'); px(x + 3, y - 3, 10, 2, '#8A8A9A'); px(x + 4, y - 3, 8, 1, '#7FC8F8');
-      const f = Math.floor(t / 400) % 2;
-      px(x + 7, y - 7 + f, 2, 4 - f, '#BFE3FF'); px(x + 5, y - 6 + f, 1, 1, '#BFE3FF'); px(x + 10, y - 6 + f, 1, 1, '#BFE3FF');
-      px(x, y - 3, 2, 2, C.garden); px(x + 14, y - 3, 2, 2, C.garden);
-    },
-    school: (x, y, t, night) => { // brick block, bell tower with clock
-      px(x, y - 12, 24, 12, '#B5523B'); px(x - 1, y - 13, 26, 1, C.slab);
-      px(x + 9, y - 18, 6, 5, '#B5523B'); px(x + 10, y - 19, 4, 1, C.slab); px(x + 11, y - 17, 2, 2, '#F4F4F4');
-      for (const wx of [2, 6, 16, 20]) px(x + wx, y - 9, 2, 3, glass());
-      px(x + 10, y - 5, 4, 5, C.dark);
-    },
-    hospital: (x, y, t, night) => { // white block, big cross
-      px(x, y - 18, 20, 18, '#E8E8EC');
-      px(x + 9, y - 16, 2, 6, '#E4572E'); px(x + 7, y - 14, 6, 2, '#E4572E');
-      for (const wx of [2, 6, 12, 16]) px(x + wx, y - 8, 2, 2, glass());
-      px(x + 8, y - 4, 4, 4, '#9FC4E0');
-    },
-    clocktower: (x, y, t, night) => { // the clock shows the real minute hand
-      px(x + 2, y - 28, 10, 28, '#C9B38A'); px(x + 3, y - 30, 8, 2, '#8C5E48'); px(x + 5, y - 32, 4, 2, '#8C5E48'); px(x + 6, y - 34, 2, 2, '#8C5E48');
-      px(x + 4, y - 25, 6, 6, '#F4F4F4'); px(x + 6, y - 23, 2, 2, C.dark);
-      const [hx, hy, hw, hh] = [[6, -25, 1, 2], [8, -23, 2, 1], [6, -21, 1, 2], [4, -23, 2, 1]][Math.floor(new Date().getMinutes() / 15)];
-      px(x + hx, y + hy, hw, hh, C.dark); // minute hand, quarter-hour steps
-      px(x + 6, y - 15, 2, 4, glass()); px(x + 5, y - 5, 4, 5, C.dark);
-    },
-    skyscraper: (x, y, t, night) => { // glass tower, a few windows lit at night, slow beacon on the spire
-      px(x, y - 60, 20, 60, '#4A6A8A'); px(x + 3, y - 62, 14, 2, '#36506A'); px(x + 9, y - 64, 2, 2, '#36506A');
-      for (let j = 0; j < 14; j++) for (let c = 0; c < 4; c++)
-        px(x + 2 + c * 5, y - 57 + j * 4, 3, 2, hash(`w${j}:${c}`) % 3 ? C.lit : '#2A3A4A');
-      if (Math.floor(t / 1500) % 2) px(x + 9, y - 65, 1, 1, '#E4572E');
-    },
-    ferris: (x, y, t) => { // slowly turning wheel with coloured cabins
-      const cx = x + 14, cy = y - 16, a0 = t / 9000;
-      for (const lx of [-8, 8]) for (let k = 0; k <= 16; k++) px(cx + (lx * k) / 16, cy + k, 1, 1, '#8A8A9A');
-      px(x + 4, y - 1, 20, 1, '#8A8A9A');
-      for (let k = 0; k < 28; k++) px(cx + Math.cos(k / 28 * 2 * Math.PI) * 12, cy + Math.sin(k / 28 * 2 * Math.PI) * 12, 1, 1, '#E8E8E8');
-      for (let k = 0; k < 8; k++) {
-        const a = a0 + (k / 8) * 2 * Math.PI;
-        if (k % 2 === 0) for (let r = 2; r < 12; r += 2) px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, '#C0C0C8');
-        px(cx + Math.cos(a) * 12 - 1, cy + Math.sin(a) * 12, 3, 2, FLAGS[k % FLAGS.length]);
-      }
-    },
-    arena: (x, y, t, night) => { // seating bowl and floodlights
-      px(x, y - 8, 32, 8, '#8A8A9A'); px(x + 2, y - 10, 28, 2, '#A8A8B8');
-      for (let i = 4; i < 28; i += 3) px(x + i, y - 6, 2, 1, FLAGS[i % FLAGS.length]);
-      for (const lx of [0, 31]) { px(x + lx, y - 14, 1, 6, '#5A5A6A'); px(x + lx - 1, y - 15, 3, 1, night ? C.shine : '#DDDDDD'); }
-    },
-  };
-
   // --- depth: a side wall and roof edge slanting back on the side away from the sun ------
   const D = 3; // how far back the box goes (px)
-  const BODY = { // the box behind each solid building: [x offset, width, height, wall colour]
-    office: [0, 16, 16, '#5E7A96'], apartment: [0, 16, 16, '#B9876A'], house: [2, 12, 10, '#8C6F5A'], shop: [0, 16, 10, '#C9A27A'],
-    factory: [0, 18, 12, '#7A6A5A'], school: [0, 24, 12, '#B5523B'], hospital: [0, 20, 18, '#E8E8EC'], skyscraper: [0, 20, 60, '#4A6A8A'],
-    clocktower: [2, 10, 28, '#C9B38A'], arena: [0, 32, 8, '#8A8A9A'],
-  }; // parks, pools, fountains, towers on legs, turbines and the wheel are open shapes: no box
   const shade = (hex, k) => '#' + [1, 3, 5].map((i) => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k)).toString(16).padStart(2, '0')).join('');
   const depth = (x, base, h, body, done, right, night) => {
     const [dx, w, , wall] = body, c = done ? wall : AIRY, top = base - h, dir = right ? 1 : -1;
@@ -200,11 +91,6 @@
     }
   };
 
-  const house = (x, y, night) => { // little two-storey house with a pitched roof
-    px(x + 2, y - 10, 12, 10, '#8C6F5A'); px(x + 7, y - 5, 2, 5, C.dark);
-    for (let i = 0; i < 4; i++) px(x + 1 + i, y - 11 - i, 14 - 2 * i, 1, '#9C4A3A');
-    px(x + 4, y - 8, 2, 2, glass()); px(x + 10, y - 8, 2, 2, glass());
-  };
   const OLD = ['#7A6E80', '#8A7466', '#6E7A78', '#86786A']; // muted, so new buildings stand out
   const oldHouse = ({ x, w, h, peak }, y, night, i) => { // old-town rooftop, standing on ground line y
     const c = OLD[i % OLD.length];
@@ -214,11 +100,6 @@
     for (let wy = y - h + 3; wy < y - 2; wy += 4) for (let wx = x + 2; wx < x + w - 2; wx += 4)
       px(wx, wy, 1, 2, night && hash(`${x}:${wy}:${wx}`) % 3 === 0 ? '#B8A060' : shade(c, 0.6));
   };
-  const park = (x, y, season) => { // two trees and a bench
-    tree(x, season, y); tree(x + 10, season, y);
-    px(x + 5, y - 2, 5, 1, '#6B4A2B'); px(x + 5, y - 1, 1, 1, '#6B4A2B'); px(x + 9, y - 1, 1, 1, '#6B4A2B');
-  };
-
   // --- ambient -------------------------------------------------------------
   const line = (a, b, color) => { // 1px dotted pixel line
     const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
@@ -267,12 +148,6 @@
         weather === 'rain' ? px(x, y, 1, 3, '#9FB8D8') : px(x, y, 1, 1, '#FFFFFF');
       }
     }
-  };
-  const tree = (x, season, y = GROUND) => {
-    px(x + 2, y - 4, 1, 4, '#6B4A2B');
-    const leaves = LEAVES[season];
-    if (leaves) { px(x, y - 9, 5, 5, leaves); if (season === 'spring') px(x + 1, y - 8, 1, 1, '#F7A8C4'); }
-    else px(x + 1, y - 6, 3, 1, '#F4F4F4'); // bare branch with snow
   };
   const lamp = (x, on) => {
     px(x, GROUND - 8, 1, 8, '#2A2A3A'); px(x - 1, GROUND - 9, 3, 1, '#2A2A3A');
@@ -336,21 +211,6 @@
     }
   };
 
-  // --- street life (unlocks as the city grows) ------------------------------
-  const boat = (x, color, dir, night, y) => { // little river boat with a wake
-    px(x, y, 10, 2, color); px(x + 1, y + 2, 8, 1, '#22202B'); px(x + 3, y - 2, 4, 2, '#F4F4F4'); px(x + 4, y - 2, 1, 1, '#9FC4E0');
-    px(dir > 0 ? x - 4 : x + 11, y + 2, 3, 1, '#BFE3FF');
-    if (night) px(dir > 0 ? x + 9 : x, y - 1, 1, 1, C.shine);
-  };
-  const foodCart = (x) => {
-    px(x, GROUND - 4, 8, 3, '#E8D8B0'); px(x + 1, GROUND - 1, 2, 1, '#111111'); px(x + 5, GROUND - 1, 2, 1, '#111111');
-    px(x + 4, GROUND - 8, 1, 4, '#555555'); for (let i = 0; i < 10; i += 2) px(x - 1 + i, GROUND - 9, 2, 1, i % 4 ? '#F4F4F4' : '#E4572E');
-  };
-  const balloon = (x, y) => {
-    px(x, y + 1, 6, 4, '#E4572E'); px(x + 1, y, 4, 6, '#E4572E'); px(x + 2, y, 2, 6, '#F2C230');
-    px(x + 1, y + 6, 1, 2, '#6B4A2B'); px(x + 4, y + 6, 1, 2, '#6B4A2B'); px(x + 2, y + 8, 2, 2, '#6B4A2B');
-  };
-
   // --- builders, trucks, buses ---------------------------------------------
   const builderSprite = (x, mode, t, jump = 0) => {
     const y = GROUND - 7 - jump, step = mode === 'walk' && Math.floor(t / 240) % 2;
@@ -366,7 +226,7 @@
   };
 
   // --- state ---------------------------------------------------------------
-  let town = {}, lots = [], builders = [], sunPhase = null, timer = null, sunTimes = null, realSky = null, seenDone = null;
+  let scene = null, town = {}, lots = [], builders = [], sunPhase = null, timer = null, sunTimes = null, realSky = null, seenDone = null;
   const pieceKey = (id, at) => `${id}:${at}`;
   const walkers = new Map();   // id -> Walker
   const doneCounts = new Map(); // id -> finished floors, to spot a fresh !done and jump
@@ -385,6 +245,8 @@
       ...(l.done ? [pieceKey(l.id, l.at)] : []), ...l.storeys.filter((s) => s.done).map((s) => pieceKey(s.id, s.at))]));
     if (seenDone) for (const k of doneNow) if (!seenDone.has(k)) reveals.set(k, Date.now());
     seenDone = doneNow;
+    const wanted = msg.theme ?? null; // a new theme washes in as a tide (src/scene/theme.ts)
+    scene = scene ? steer(scene, wanted, Date.now()) : settled(wanted);
     town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null; sunTimes = msg.sun ?? null; realSky = msg.sky ?? null;
   };
 
@@ -398,6 +260,12 @@
     const topOf = (l) => baseOf(l) - l.h - l.storeys.length * FH;
     const complete = (l) => l.done && l.storeys.every((s) => s.done);
     const roofs = lots.filter((l) => STACKABLE.has(l.kind) && complete(l));
+    const tideNow = scene ? tide(scene, Date.now()) : 1, sweep = Math.round(tideNow * WIDTH);
+    const kitAt = (x) => kitOf(x < sweep ? scene?.to : scene?.from); // left of the tide: the new theme
+    const night = phase !== 'day', s = { t, night, season, minute: nowDate.getMinutes() };
+    // street logic: lamps, boats, cart, balloon and the power line all switch through the circuit
+    const built = lots.some((l) => l.done || l.storeys.some((x) => x.done));
+    const on = evaluate(STREET, streetInputs({ night, weather, life: streetLife(lots), built }));
 
     ctx.clearRect(0, 0, WIDTH, 270);
     // the sky opens up as the city rises: it starts just above the rooftops and grows with the tallest tower
@@ -445,18 +313,18 @@
 
     // ponytail: storeys go on the shortest tower forever; past ~25 storeys it reaches the top of the frame.
     const drawLot = (l) => {
-      const x = xOf(l), base = baseOf(l), night = phase !== 'day';
+      const x = xOf(l), base = baseOf(l), k = kitAt(x);
       const h = l.id === FOCUS_ID ? Math.max(3, Math.round(l.h * progress)) : l.h, seed = hash(pieceKey(l.id, l.at)) % 3000;
-      const body = l.done ? BODY[l.kind] : [0, l.w, h, AIRY];
+      const body = l.done ? k.body[l.kind] : [0, l.w, h, AIRY];
       if (body) depth(x, base, (l.done ? body[2] : h) + l.storeys.length * FH, body, l.done, shadeRight, night);
-      l.done ? LOTS[l.kind](x, base, t, night, season) : scaffoldBox(x, base, l.w, h, t, seed);
+      l.done ? k.lots[l.kind](px, x, base, s) : scaffoldBox(x, base, l.w, h, t, seed);
       reveal(pieceKey(l.id, l.at), x, base, l.w, l.h, t, seed);
-      l.storeys.forEach((s, k) => {
-        const y = base - l.h - (k + 1) * FH, sseed = hash(pieceKey(s.id, s.at)) % 3000;
-        s.done ? (STOREY[l.kind] ?? STOREY.office)(x, y) : scaffolding(x, y, t, sseed);
-        reveal(pieceKey(s.id, s.at), x, y + FH, W, FH, t, sseed);
+      l.storeys.forEach((st, i) => {
+        const y = base - l.h - (i + 1) * FH, sseed = hash(pieceKey(st.id, st.at)) % 3000;
+        st.done ? (k.storey[l.kind] ?? k.storey.office)(px, x, y, s) : scaffolding(x, y, t, sseed);
+        reveal(pieceKey(st.id, st.at), x, y + FH, W, FH, t, sseed);
       });
-      if (STACKABLE.has(l.kind) && complete(l)) roofCap(x, topOf(l), l.kind, t);
+      if (STACKABLE.has(l.kind) && complete(l)) k.roof(px, x, topOf(l), l.kind, t);
     };
     oldTown(WIDTH - 16, nowDate.toLocaleDateString('en-CA'), lots).forEach((b, i) => oldHouse({ ...b, x: 8 + b.x }, GROUND - BACK, phase !== 'day', i));
     lots.filter((l) => l.row === 'back').forEach(drawLot);
@@ -467,10 +335,16 @@
       px(x, GROUND, 1, 2, '#5A6988'); px(x, GROUND + 2, 1, SHORE[x] - GROUND - 2, '#4A5670');
       if (hash('rock' + x) % 11 === 0) px(x, SHORE[x] - 1, 1, 1, '#6B7890'); // a few stones on the edge
     }
+    // the power line under the promenade: finished buildings tap into it, pulses run while it's live
+    px(0, GROUND + 1, WIDTH, 1, '#3E4A66');
+    if (on.power) {
+      for (const l of lots) if (l.done) px(xOf(l) + Math.floor(l.w / 2), GROUND, 1, 2, '#FEE761');
+      for (let i = 0; i < 4; i++) px(drift(30 + i * 7, t, WIDTH, 10), GROUND + 1, 2, 1, '#FEE761');
+    }
     lots.filter((l) => l.row === 'front').forEach((l, i) => {
       drawLot(l);
-      if (i % 4 === 3) lamp(xOf(l) + l.w + 2, phase !== 'day'); // promenade furniture in some gaps, not a picket fence
-      else if (i % 3 === 1) tree(xOf(l) + l.w, season);
+      if (i % 4 === 3) lamp(xOf(l) + l.w + 2, on.lamps); // promenade furniture in some gaps, not a picket fence
+      else if (i % 3 === 1) tree(px, xOf(l) + l.w, GROUND, season);
     });
     for (const [id, until] of wheres) {
       if (Date.now() > until) { wheres.delete(id); continue; }
@@ -478,11 +352,12 @@
     }
     const catAt = catRoof(roofs.length, Date.now());
     if (catAt !== null) cat(xOf(roofs[catAt]) + 3, topOf(roofs[catAt]) - 2, t);
-    const life = streetLife(lots), night = phase !== 'day';
-    if (life.includes('boats')) { boat(drift(3, t, WIDTH, 6), '#4C9AFF', 1, night, GROUND + 14); boat(WIDTH - 10 - drift(5, t, WIDTH, 4), '#E4572E', -1, night, GROUND + 17); }
-    if (life.includes('cart')) foodCart(drift(11, t, WIDTH, 4));
+    if (on.boats) for (const [x, color, dir, y] of [[drift(3, t, WIDTH, 6), '#4C9AFF', 1, GROUND + 14], [WIDTH - 10 - drift(5, t, WIDTH, 4), '#E4572E', -1, GROUND + 17]])
+      kitAt(x).boat(px, x, y, color, dir, night);
+    const cx = drift(11, t, WIDTH, 4);
+    if (on.cart) kitAt(cx).cart(px, cx, GROUND);
     const bx = drift(7, t, WIDTH, 3);
-    if (life.includes('balloon') && SKY && Math.abs(bx - clockX) > 24) balloon(bx, skyTop + 14); // never over the clock
+    if (on.balloon && SKY && Math.abs(bx - clockX) > 24) kitAt(bx).balloon(px, bx, skyTop + 14, t); // never over the clock
 
     // builders: walk to your scaffolding and hammer, otherwise wander
     const ids = new Set(builders.map((b) => b.id));
@@ -517,7 +392,8 @@
     }
     ctx = screen;
     // the river: dark water mirroring the skyline, squashed and rippling
-    px(0, GROUND + 2, WIDTH, 270 - GROUND - 2, phase === 'day' ? '#2E4E70' : '#141C33');
+    const water = (id) => kitOf(id).water[phase === 'day' ? 'day' : 'night'];
+    px(0, GROUND + 2, sweep, 270 - GROUND - 2, water(scene?.to)); px(sweep, GROUND + 2, WIDTH - sweep, 270 - GROUND - 2, water(scene?.from));
     for (let y = 0; y < 270 - GROUND - 2; y++) {
       ctx.globalAlpha = 0.45 * (1 - y / 24);
       ctx.drawImage(layer.canvas, 0, GROUND - 1 - y * 2, WIDTH, 1, Math.round(Math.sin(t / 900 + y * 1.3)), GROUND + 2 + y, WIDTH, 1);
@@ -525,6 +401,10 @@
     ctx.globalAlpha = 1;
     for (let i = 0; i < 6; i++) px(drift(20 + i, t, WIDTH, 2 + i), GROUND + 4 + ((i * 5) % 14), 3, 1, 'rgba(255,255,255,0.35)'); // glints
     ctx.filter = OUTLINE; ctx.drawImage(layer.canvas, 0, 0); ctx.filter = 'none';
+    if (tideNow < 1) { // the tide line: a soft veil over the city and a foam line on the water
+      px(sweep - 3, skyTop, 6, GROUND - skyTop, 'rgba(255,255,255,0.12)');
+      px(sweep - 1, GROUND + 2, 2, 270 - GROUND - 2, 'rgba(255,255,255,0.6)');
+    }
     requestAnimationFrame(frame);
   };
 
