@@ -12,7 +12,9 @@ Twitch handler app. Intended to be open-sourced.
 ## Twitch integration notes
 - App registered at https://dev.twitch.tv/console (account needs verified email + 2FA).
 - Chat: use EventSub + Helix API, not IRC (Twitch's current recommendation).
-- Scopes: request the minimum needed and record them here as features are added.
+- Scopes: request the minimum needed and record them here as features are added (scripts/login.sh).
+  - bot: `user:read:chat user:write:chat user:bot moderator:read:followers`
+  - channel: `channel:bot channel:manage:broadcast user:edit channel:manage:redemptions` (redemptions: Workout rewards)
 
 ## Stack
 - TypeScript (Node 25, ESM, run TS directly), Twurple v8 (`auth`, `api`, `eventsub-ws`) — chat via EventSub, not IRC.
@@ -22,7 +24,7 @@ Twitch handler app. Intended to be open-sourced.
 ## Running
 - `.env`: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL (heyisamy), TWITCH_BOT (halfopeneyes).
 - Login: `twitch configure` once, then `npm run login -- bot` (as the bot account) and `npm run login -- channel` (as the broadcaster). Device-code flow: open the printed URL in a window logged in as that account. Tokens → `tokens/<userId>.json` (gitignored, Twurple refreshes them). Bot must be a mod in the channel (`/mod <bot>`).
-- `npm run launcher` builds the "Isamy Stream" app (bot + OBS together). `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored). OBS browser sources: http://localhost:3001/town (1920x1080), http://localhost:3001/timer (600x200), http://localhost:3001/music (600x140), http://localhost:3001/workout (600x160).
+- `npm run launcher` builds the "Isamy Stream" app (bot + OBS together). `npm start` — runs `src/main.ts` (Node runs TS natively, loads .env). Viewer memory in `data/` (gitignored). OBS browser sources: http://localhost:3001/town (1920x1080; `?bg=1` = full-screen backdrop, put it at the bottom of the scene), http://localhost:3001/timer (600x200), http://localhost:3001/music (600x140), http://localhost:3001/workout (600x160, Channel Points workout queue).
 
 ## Style
 - Bot voice: playful & witty. Speaks only when needed (greetings, timer, command replies) — no timed spam.
@@ -37,6 +39,11 @@ Twitch handler app. Intended to be open-sourced.
 - `docs/CITY.md` — engineer/PM/designer review of the pixel city, positioning vs PomodoroWorld, backlog.
 
 ## Ledger
+- 2026-10-15 — Channel Points replace bricks. Monetization for All (May 2026) opened the API to non-Affiliates: `npm run rewards:check` passed on heyisamy. Broadcaster scope + `channel:manage:redemptions`. Bot creates one reward per LADDER rung (400/800/1200/2000/3200 pts) on boot, queues redemptions for the next break, fulfils when done, refunds while `!workout off` (rewards paused too). Wallet, earning and `!bricks` removed.
+- 2026-10-15 — Emotes unlocked pre-Affiliate (Twitch streamer-tools rollout). Prefix `heyisam`. 14x14 pixel art in assets/emotes (28/56/112, nearest-neighbour). Follower: Brick, Lockin (lowercase i), Lit, Cozy, Grass. Tier 1: HYPE (Twitch default), Aura, Tuff, Glaze, Cooked. Tier 2: Focus. Tier 3: Build. Bits 1K: SixSeven, 5K: Clanker. Skipped trending insults (bop, chud). No Helix upload endpoint, dashboard only. Bot copy uses follower emotes (E in src/emotes.ts, bot account follows the channel); TTS skips `heyisam*`.
+- 2026-10-15 — Path to Affiliate (2 followers, day 6). `!raid` (mods) lists 3 live English streams in our category with 2–30 viewers, smallest first (src/raid.ts); the streamer still types /raid. Category snapshot: 176 live EN streams, median ~5 viewers. VODs were off; told streamer to enable. Titles: streamer's daily line + " | !task builds my pixel city" hook. Tags: Coworking, BodyDoubling, StudyWithMe, Pomodoro, PixelArt, Cozy, Programming, English.
+- 2026-10-15 — Live feedback: scaffolds bunched mid-screen → each lot rolls its own spot anywhere on the street (hash of id:at, replaces sprawl-from-core), nearest free gap, preferring spots not in front of/behind the other row so every scaffold stays visible.
+- 2026-10-14 — Full-screen backdrop: town `?bg=1` paints an opaque sky top to bottom (no fade). Old town (oldTown in city.ts): low muted rooftops cover the whole street from the start, new layout each day, taller toward the core; back-row towers replace the houses they stand on. New lots sprawl out from the centre, alternating sides with a jittered step (replaces golden-ratio scatter). Stream tags trimmed to Coworking, StudyWithMe, Pomodoro, Programming.
 - 2026-10-13 — Chat copy for the skyline: tasks are `#N` (stable numbers, gaps = done), names spelled out (nameOf in city.ts), no floor/street wording, no em dashes (test sweeps replies). Breaks and lunch open with a cheer: blocks + focus minutes so far, buildings/landmarks lit today (builtToday), new landmark, who finished this block; break tip last.
 - 2026-10-13 — Live feedback: street filled left to right, landmarks right to left → lots now scatter across the city (golden-ratio spots, nearest free gap, never move once placed). Skyline from across a river (Chicago/NYC): low kinds on the riverfront, towers in a hazed back row, river mirrors the city with ripples, boats replace cars. Depth: solid buildings get a 3px side wall + roof edge (BODY in town.html) on the side away from the sun/moon, so the city turns its shade through the day. Far shore: farRow (city.ts) draws faint unoutlined towers behind, new per day, count grows with lots, height 12 + 0.7 × tallest building, lit dots at night. Shoreline curves (SHORE in town.html, 2 sine waves, 2–11px below the promenade); boats sail below it.
 - 2026-10-10 — City review (docs/CITY.md): atomic in-order saves + corrupt file stops boot; boot withers stale landmarks; landmarks ≤ half street; no-store overlay; !help, greeting mentions !task, !task names the building, 10 open/viewer; airy scaffolds vs solid lit buildings, soft sky edge, sidewalk/lanes, calmer blink rates, completion reveal. Kept streamer's choices over designer's (moving sun clock, sky that grows).
