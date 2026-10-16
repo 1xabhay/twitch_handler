@@ -14,7 +14,7 @@ Inspired by [PomodoroWorld](https://pomodoroworld.com) — if you want a polishe
 - **Viewer greetings.** First-time chatters and returning regulars get different (playful) welcomes, once per stream.
 - **Focus timer.** `shift` (8 h, 50/10 on the hour, lunch at 4 h), `pomodoro` (25/5) and `deep` (90/20) presets, with break prompts ranked by the research in [docs/FOCUS.md](docs/FOCUS.md).
 - **Song requests (Spotify).** `!sr`, `!song`, `!skip`, a shared playlist, and a now-playing card. Limited to stream-safe labels by default. Read [docs/MUSIC.md](docs/MUSIC.md) before changing that.
-- **Workout Meter.** Viewers earn 🧱 bricks (chatting, hanging out, finishing floors) and pour them into a shared meter. Each filled tier queues a harder exercise, up to 🥊 2 min shadow boxing, done at the next break (max 2/hour, 10 min apart).
+- **Workout Meter.** Viewers buy an exercise for the streamer with Channel Points (one reward per exercise, the bot creates them), up to 🥊 2 min shadow boxing. Done at the next break (max 2/hour, 10 min apart), then marked fulfilled; redemptions while paused are refunded.
 - **Link commands and Discord.** `!socials`, `!discord`, `!insta`, `!playlist`, plus an optional "we're live" post to a Discord channel.
 
 ## Chat commands
@@ -34,7 +34,7 @@ Inspired by [PomodoroWorld](https://pomodoroworld.com) — if you want a polishe
 | `!sr <song>` | followers (1 per 10 min), mods | request a song |
 | `!song` | anyone | what's playing |
 | `!skip` | mods | skip the current song |
-| `!workout [n]` / `!bricks` | anyone | pour 🧱 bricks into the Workout Meter / check your balance |
+| `!workout` | anyone | what's queued for the next break (`!workout off\|on` for mods, also pauses the rewards) |
 | `!workout off` / `on` | mods | pause / resume the Workout Meter |
 | `!socials`, `!discord`, `!insta`, `!playlist` | anyone | links |
 

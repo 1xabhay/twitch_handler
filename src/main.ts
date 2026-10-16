@@ -17,7 +17,8 @@ import { canRequest, nowPlaying, parseMusic } from './music.ts';
 import { spotifyClient } from './spotify.ts';
 import { handleLink } from './links.ts';
 import { speakable } from './tts.ts';
-import { earnChat, earnDone, earnPresence, handleWorkout, nextWorkout, type Gym } from './workout.ts';
+import { raidPicks } from './raid.ts';
+import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -66,7 +67,8 @@ const MUSIC_ALLOW_ALL = process.env.MUSIC_ALLOW_ALL === 'true'; // at your own D
 const playlist = spotify && process.env.SPOTIFY_PLAYLIST ? await spotify.playlistId(process.env.SPOTIFY_PLAYLIST) : undefined;
 let song: Awaited<ReturnType<NonNullable<typeof spotify>['current']>> = null;
 const requests: Record<string, number> = {}; // userId → last request time
-let gym = await readJson<Gym>(GYM_FILE, { wallet: {}, lastChat: {}, meter: 0, tier: 0, contributors: {}, pending: [], doneAt: [], enabled: true });
+const { pending = [], doneAt = [], enabled = true } = await readJson<Partial<Gym>>(GYM_FILE, {}); // drops retired brick fields
+let gym: Gym = { pending, doneAt, enabled };
 const saveGym = (next: Gym) => { if (next === gym) return; gym = next; push(state()); void writeJson(GYM_FILE, gym); };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
@@ -78,11 +80,27 @@ const sunTimes = () => {
   return { dawn: +t.dawn, sunrise: +t.sunrise, sunset: +t.sunset, dusk: +t.dusk };
 };
 const sunPhase = () => { const t = sunTimes(); return t && phaseFromSun(Date.now(), t); };
-const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), sun: sunTimes(), timer, song, gym: { meter: gym.meter, tier: gym.tier, pending: gym.pending.length, enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: BOOT, phase: sunPhase(), sun: sunTimes(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 setInterval(() => push(state()), 60_000); // let quiet builders clock out
 // Sent with the app token → the Chat Bot badge. Needs user:bot from the bot, which must be a mod (or channel:bot).
 const say = (text: string) => api.chat.sendChatMessageAsApp(bot, channel, text);
+// Workout rewards: one Channel Points reward per rung, created by this app so it can fulfil or refund them.
+// Needs channel:manage:redemptions (npm run login -- channel). Costs are set once; edit them in the dashboard after.
+const rewardIds: string[] = [];
+const pauseRewards = (isPaused: boolean) =>
+  Promise.all(rewardIds.map((id) => api.channelPoints.updateCustomReward(channel, id, { isPaused }))).catch((err) => console.error('pausing rewards failed', err));
+const setRedemption = (r: { rewardId: string; id: string }, status: 'FULFILLED' | 'CANCELED') =>
+  api.channelPoints.updateRedemptionStatusByIds(channel, r.rewardId, [r.id], status).catch((err) => console.error(`redemption ${status} failed`, err));
+try {
+  const ours = await api.channelPoints.getCustomRewards(channel, true);
+  for (const t of LADDER) {
+    const r = ours.find((x) => x.title === t.name)
+      ?? await api.channelPoints.createCustomReward(channel, { title: t.name, cost: t.cost, prompt: 'isamy does it at the next break (max 2 an hour) 💪' });
+    rewardIds.push(r.id);
+  }
+  await pauseRewards(!gym.enabled);
+} catch (err) { console.error('workout rewards unavailable', err); }
 const saveTown = async (next: Town) => {
   if (next === town) return;
   town = next;
@@ -108,10 +126,10 @@ setInterval(() => { // workouts fire at breaks (or anytime without a focus timer
   if (!r.workout) return;
   saveGym(r.gym);
   push({ type: 'workout', ...r.workout });
+  if (r.workout.redemption) void setRedemption(r.workout.redemption, 'FULFILLED');
   const by = r.workout.by.length ? `, courtesy of ${r.workout.by.map((n) => `@${n}`).join(' ')}` : '';
   say(`💪 workout time! isamy does ${r.workout.name}${by}`).catch((err) => console.error('workout announce failed', err));
 }, 1000);
-setInterval(() => saveGym(earnPresence(gym, activeBuilders(crowd, Date.now()).map((b) => b.id))), 10 * 60_000);
 setInterval(() => { // announce each phase change; the overlay counts down on its own
   if (!timer) return;
   const c = current(timer, Date.now());
@@ -165,6 +183,13 @@ listener.onStreamOnline(channel, async (e) => {
 });
 listener.onChannelFollow(channel, bot, (e) => push({ type: 'follow', name: e.userDisplayName }));
 listener.onChannelRaidTo(channel, (e) => push({ type: 'raid', from: e.raidingBroadcasterDisplayName, viewers: e.viewers }));
+listener.onChannelRedemptionAdd(channel, (e) => {
+  const r = redeem(gym, { id: e.id, rewardId: e.rewardId, rewardTitle: e.rewardTitle, userName: e.userDisplayName });
+  if (!r) return;
+  saveGym(r.gym);
+  if (!r.accepted) void setRedemption(e, 'CANCELED'); // refunds the points
+  say(r.reply).catch((err) => console.error('redemption reply failed', err));
+});
 listener.onChannelChatMessage(channel, bot, (e) => handleChat(e).catch((err) => console.error('chat handler failed', err)));
 
 // Chat read aloud on the Mac, one line at a time. OBS captures only Spotify, so only the streamer hears it.
@@ -189,25 +214,31 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
   if (word === '!where') push({ type: 'where', id: chatter.userId }); // overlay points at their buildings
   if (word === '!leave') await say(`@${chatter.userName} clocks out 👋 (!join to come back)`);
 
-  saveGym(earnChat(gym, chatter.userId, Date.now()));
   const isMod = 'broadcaster' in e.badges || 'moderator' in e.badges;
   const ttsCmd = word.match(/^!tts (on|off)$/)?.[1];
   if (ttsCmd && isMod) { tts = ttsCmd === 'on'; await say(`🔊 reading chat aloud: ${ttsCmd}`); }
   const line = speakable(chatter.userName, e.messageText);
   if (tts && line) speak(line);
+  if (word === '!raid' && isMod) { // pages through the whole category: Helix sorts biggest first
+    const game = (await api.channels.getChannelInfoById(channel))?.gameId;
+    const live = game ? await api.streams.getStreamsPaginated({ game, language: 'en', type: 'live' }).getAll() : [];
+    await say(raidPicks(live.map((x) => ({ userId: x.userId, userName: x.userDisplayName, viewers: x.viewers, startDate: x.startDate })), channel.id, Date.now()));
+  }
   if (word === '!newday' && isMod) {
     await startNewDay(false);
     await say('🌅 new day, clear skyline! yesterday\'s city is archived, unfinished buildings carried over. !task to start building');
   }
-  const doneBefore = town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0;
   const cmd = handleCommand(town, chatter, e.messageText);
-  if (cmd && (cmd.town[chatter.userId]?.floors.filter((f) => f.done).length ?? 0) > doneBefore) saveGym(earnDone(gym, chatter.userId));
   if (cmd) await saveTown(cmd.town);
   push(state());
   if (cmd) await say(cmd.reply);
 
   const w = handleWorkout(gym, chatter, isMod, e.messageText);
-  if (w) { saveGym(w.gym); await say(w.reply); }
+  if (w) {
+    if (w.gym.enabled !== gym.enabled) void pauseRewards(!w.gym.enabled);
+    saveGym(w.gym);
+    await say(w.reply);
+  }
 
   const link = handleLink(e.messageText, { discord: process.env.LINK_DISCORD, insta: process.env.LINK_INSTA, playlist: process.env.LINK_PLAYLIST });
   if (link) await say(link);

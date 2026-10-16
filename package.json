@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "start": "node --env-file=.env src/main.ts",
     "login": "sh scripts/login.sh",
+    "rewards:check": "node --env-file=.env scripts/rewards-check.ts",
     "login:spotify": "node --env-file=.env scripts/spotify-login.ts",
     "launcher": "sh scripts/make-launcher.sh"
   },

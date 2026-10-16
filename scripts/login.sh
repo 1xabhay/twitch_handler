@@ -6,7 +6,7 @@
 set -e
 case "$1" in
   bot) SCOPES="user:read:chat user:write:chat user:bot moderator:read:followers" ;;
-  channel) SCOPES="channel:bot channel:manage:broadcast user:edit" ;;
+  channel) SCOPES="channel:bot channel:manage:broadcast user:edit channel:manage:redemptions" ;;
   *) echo "usage: npm run login -- bot|channel"; exit 1 ;;
 esac
 mkdir -p tokens

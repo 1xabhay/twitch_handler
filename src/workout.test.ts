@@ -1,39 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { LADDER, WELCOME, earnChat, earnDone, earnPresence, handleWorkout, nextWorkout, type Gym } from './workout.ts';
+import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
 
 const MIN = 60_000;
-const empty: Gym = { wallet: {}, lastChat: {}, meter: 0, tier: 0, contributors: {}, pending: [], doneAt: [], enabled: true };
+const empty: Gym = { pending: [], doneAt: [], enabled: true };
 const sam = { userId: '1', userName: 'sam' };
-const rich = (n: number, g: Gym = empty): Gym => ({ ...g, wallet: { '1': n } });
-
-describe('earning bricks', () => {
-  it('first chat gives the welcome bonus, then +1 at most once a minute', () => {
-    let g = earnChat(empty, '1', 0);
-    expect(g.wallet['1']).toBe(WELCOME);
-    g = earnChat(g, '1', 30_000);
-    expect(g.wallet['1']).toBe(WELCOME);
-    g = earnChat(g, '1', MIN);
-    expect(g.wallet['1']).toBe(WELCOME + 1);
-  });
-
-  it('presence and finished floors add bricks', () => {
-    expect(earnPresence(rich(3), ['1', '2']).wallet).toEqual({ '1': 8, '2': 5 });
-    expect(earnDone(rich(3), '1').wallet['1']).toBe(13);
-  });
-
-  it('does not mutate the previous state', () => {
-    const g = rich(3);
-    earnDone(g, '1');
-    expect(g.wallet['1']).toBe(3);
-  });
-});
+const redemption = (rewardTitle: string) => ({ id: 'r1', rewardId: 'w1', rewardTitle, userName: 'sam' });
 
 describe('ladder', () => {
-  it('gets harder each tier and ends with shadow boxing', () => {
+  it('gets pricier each tier and ends with shadow boxing', () => {
     const costs = LADDER.map((t) => t.cost);
     expect(costs).toEqual([...costs].sort((a, b) => a - b));
     expect(LADDER.at(-1)!.name).toMatch(/shadow box/i);
     expect(LADDER).toHaveLength(5);
+  });
+});
+
+describe('redeem (a Channel Points reward was bought)', () => {
+  it('ignores rewards that are not workouts', () => {
+    expect(redeem(empty, redemption('Hydrate!'))).toBeNull();
+  });
+
+  it('queues the exercise for the next break, credited to the viewer', () => {
+    const r = redeem(empty, redemption(LADDER[1]!.name))!;
+    expect(r.accepted).toBe(true);
+    expect(r.gym.pending).toEqual([{ name: LADDER[1]!.name, by: ['sam'], redemption: { rewardId: 'w1', id: 'r1' } }]);
+    expect(r.reply).toContain('@sam');
+    expect(r.reply).toMatch(/next break/);
+  });
+
+  it('refunds while the meter is paused', () => {
+    const off = { ...empty, enabled: false };
+    const r = redeem(off, redemption(LADDER[0]!.name))!;
+    expect(r.accepted).toBe(false);
+    expect(r.gym).toBe(off);
+    expect(r.reply).toMatch(/refund/);
   });
 });
 
@@ -43,54 +43,22 @@ describe('handleWorkout', () => {
     expect(handleWorkout(empty, sam, false, '!workouts')).toBeNull();
   });
 
-  it('!workout shows the meter and your balance', () => {
-    const r = handleWorkout(rich(42), sam, false, '!workout')!;
-    expect(r.gym).toEqual(rich(42));
-    expect(r.reply).toMatch(/42/);
-    expect(r.reply).toMatch(new RegExp(LADDER[0]!.name));
+  it('!workout shows the queue and points to Channel Points', () => {
+    const queued = redeem(empty, redemption(LADDER[0]!.name))!.gym;
+    const r = handleWorkout(queued, sam, false, '!workout')!;
+    expect(r.gym).toBe(queued);
+    expect(r.reply).toContain(LADDER[0]!.name);
+    expect(r.reply).toMatch(/channel points/i);
   });
 
-  it('!bricks shows your balance', () => {
-    expect(handleWorkout(rich(7), sam, false, '!bricks')!.reply).toMatch(/7/);
-  });
-
-  it('spending moves bricks from your wallet into the meter', () => {
-    const r = handleWorkout(rich(40), sam, false, '!workout 30')!;
-    expect(r.gym.wallet['1']).toBe(10);
-    expect(r.gym.meter).toBe(30);
-    expect(r.gym.contributors).toEqual({ sam: 30 });
-  });
-
-  it('you can only spend what you have', () => {
-    const r = handleWorkout(rich(20), sam, false, '!workout 999')!;
-    expect(r.gym.wallet['1']).toBe(0);
-    expect(r.gym.meter).toBe(20);
-  });
-
-  it('filling a tier queues that exercise, credits contributors, and moves up the ladder', () => {
-    const r = handleWorkout(rich(60), sam, false, `!workout ${LADDER[0]!.cost + 5}`)!;
-    expect(r.gym.pending).toEqual([{ name: LADDER[0]!.name, by: ['sam'] }]);
-    expect(r.gym.tier).toBe(1);
-    expect(r.gym.meter).toBe(5); // leftover rolls into the next tier
-    expect(r.gym.contributors).toEqual({ sam: 5 });
-  });
-
-  it('after the ultimate the ladder starts over', () => {
-    const top: Gym = { ...rich(1000), tier: LADDER.length - 1 };
-    const r = handleWorkout(top, sam, false, `!workout ${LADDER.at(-1)!.cost}`)!;
-    expect(r.gym.pending.at(-1)!.name).toMatch(/shadow box/i);
-    expect(r.gym.tier).toBe(0);
-  });
-
-  it('mods can switch it off; then nobody can spend', () => {
-    const off = handleWorkout(rich(50), sam, true, '!workout off')!.gym;
+  it('mods can pause and resume it', () => {
+    const off = handleWorkout(empty, sam, true, '!workout off')!.gym;
     expect(off.enabled).toBe(false);
-    expect(handleWorkout(off, sam, false, '!workout 10')!.gym).toBe(off);
     expect(handleWorkout(off, sam, true, '!workout on')!.gym.enabled).toBe(true);
   });
 
-  it('viewers cannot switch it off', () => {
-    expect(handleWorkout(rich(5), sam, false, '!workout off')!.gym.enabled).toBe(true);
+  it('viewers cannot pause it', () => {
+    expect(handleWorkout(empty, sam, false, '!workout off')!.gym.enabled).toBe(true);
   });
 });
 
