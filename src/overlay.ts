@@ -1,10 +1,15 @@
 import { createServer, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readdirSync, statSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 
 // Serves overlay pages for OBS browser sources and pushes messages over SSE.
 // Bound to 127.0.0.1 only: nothing here is reachable from outside this machine.
 // /lib/<path>.ts serves pure modules from src/ with types stripped, so the browser runs the tested code.
+// Newest edit time across the overlay's code: part of `boot`, so open overlays reload within a minute of a code change.
+export const codeRev = (dirs: string[]) =>
+  Math.max(0, ...dirs.flatMap((d) => readdirSync(d, { recursive: true, encoding: 'utf8' }).map((f) => statSync(`${d}/${f}`).mtimeMs)));
+
 export const startOverlay = (port: number, snapshot: () => unknown) => {
   const clients = new Set<ServerResponse>();
   const event = (msg: unknown) => `data: ${JSON.stringify(msg)}\n\n`;

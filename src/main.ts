@@ -8,7 +8,7 @@ import { EventSubWsListener } from '@twurple/eventsub-ws';
 import type { EventSubChannelChatMessageEvent } from '@twurple/eventsub-base';
 import { greet, type Viewers } from './greet.ts';
 import { builtToday, finishedSince, handleCommand, newDay, stepLandmark, type Town } from './town.ts';
-import { startOverlay } from './overlay.ts';
+import { codeRev, startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun } from './scene/ambient.ts';
 import { skyAt } from './scene/sky.ts';
@@ -79,7 +79,8 @@ let themeOverride = await readJson<Override>(THEME_FILE, null);
 const theme = () => themeOn(calendar, themeOverride, new Date());
 const names = () => { const id = theme(); return id ? THEMES[id]!.names : {}; };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
-const BOOT = Date.now(); // overlay reloads itself when this changes, so OBS never runs a stale page
+const BOOT = Date.now(); // overlays reload themselves when boot changes (restart, or an edit to their code), so OBS never runs a stale page
+const boot = () => `${BOOT}.${codeRev(['src', 'public'])}`;
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
 const [lat, lon] = [Number(process.env.SUN_LAT), Number(process.env.SUN_LON)];
 const sunTimes = () => {
@@ -89,7 +90,7 @@ const sunTimes = () => {
 };
 const sunPhase = () => { const t = sunTimes(); return t && phaseFromSun(Date.now(), t); };
 const realSky = () => (sunTimes() ? skyAt(new Date(), { lat, lon }) : undefined); // sun, moon and stars where they really are
-const state = () => ({ type: 'state', boot: BOOT, theme: theme(), phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: boot(), theme: theme(), phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 let lastTheme = theme(); // the calendar flips at midnight: say so once (a restart on a theme day stays quiet)
 setInterval(() => { // let quiet builders clock out
