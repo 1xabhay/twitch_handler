@@ -1,7 +1,7 @@
 {
   "name": "twitch_handler",
   "version": "1.0.0",
-  "description": "",
+  "description": "Cozy Twitch co-working bot + pixel-city OBS overlay, with community themes",
   "main": "index.js",
   "directories": {
     "doc": "docs"
@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "start": "node --env-file=.env src/main.ts",
+    "preview": "node scripts/preview.ts",
     "login": "sh scripts/login.sh",
     "rewards:check": "node --env-file=.env scripts/rewards-check.ts",
     "login:spotify": "node --env-file=.env scripts/spotify-login.ts",
@@ -17,7 +18,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
     "@types/node": "^26.6.5",

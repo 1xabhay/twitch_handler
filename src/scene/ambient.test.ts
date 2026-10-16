@@ -71,7 +71,7 @@ describe('phaseFromSun (real sunrise/sunset)', () => {
   it.each([
     ['05:00', 'night'], ['06:50', 'dawn'], ['07:30', 'dawn'], ['12:00', 'day'],
     ['16:20', 'dusk'], ['17:00', 'dusk'], ['17:30', 'night'], ['23:00', 'night'],
-  ])('%s in Philly mid-December is %s', (t, phase) => expect(phaseFromSun(at(t), sun)).toBe(phase));
+  ])('%s mid-December, US East Coast is %s', (t, phase) => expect(phaseFromSun(at(t), sun)).toBe(phase));
 });
 
 describe('celestial', () => {
