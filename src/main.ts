@@ -19,6 +19,7 @@ import { spotifyClient } from './spotify.ts';
 import { handleLink } from './links.ts';
 import { speakable } from './tts.ts';
 import { raidPicks } from './raid.ts';
+import { handleView, type View } from './scene/view.ts';
 import { handleTheme, parseCalendar, themeOn, THEMES, type Override } from './scene/theme.ts';
 import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
 import SunCalc from 'suncalc';
@@ -31,6 +32,7 @@ const TOWN_FILE = 'data/town.json';
 const TIMER_FILE = 'data/timer.json';
 const GYM_FILE = 'data/gym.json';
 const THEME_FILE = 'data/theme.json';
+const VIEW_FILE = 'data/view.json';
 const OVERLAY_PORT = 3001;
 // A missing file means "start fresh"; a corrupt one stops the bot instead of silently starting empty and overwriting it.
 const readJson = async <T>(path: string, fallback: T): Promise<T> =>
@@ -77,6 +79,7 @@ const saveGym = (next: Gym) => { if (next === gym) return; gym = next; push(stat
 const calendar = parseCalendar(process.env.THEMES);
 let themeOverride = await readJson<Override>(THEME_FILE, null);
 const theme = () => themeOn(calendar, themeOverride, new Date());
+let view = await readJson<View>(VIEW_FILE, 'city'); // !view city|bottom (src/scene/view.ts)
 const names = () => { const id = theme(); return id ? THEMES[id]!.names : {}; };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlays reload themselves when boot changes (restart, or an edit to their code), so OBS never runs a stale page
@@ -90,7 +93,7 @@ const sunTimes = () => {
 };
 const sunPhase = () => { const t = sunTimes(); return t && phaseFromSun(Date.now(), t); };
 const realSky = () => (sunTimes() ? skyAt(new Date(), { lat, lon }) : undefined); // sun, moon and stars where they really are
-const state = () => ({ type: 'state', boot: boot(), theme: theme(), phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: boot(), theme: theme(), view, phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 let lastTheme = theme(); // the calendar flips at midnight: say so once (a restart on a theme day stays quiet)
 setInterval(() => { // let quiet builders clock out
@@ -260,6 +263,12 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
       await writeJson(THEME_FILE, themeOverride);
     }
     await say(th.reply);
+  }
+
+  const v = handleView(view, { isMod }, e.messageText);
+  if (v) {
+    if (v.view !== view) { view = v.view; push(state()); await writeJson(VIEW_FILE, view); }
+    await say(v.reply);
   }
 
   const w = handleWorkout(gym, chatter, isMod, e.messageText);
