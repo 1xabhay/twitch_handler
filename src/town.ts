@@ -76,7 +76,7 @@ export const handleCommand = (town: Town, { userId, userName }: Chatter, text: s
       return keep(`👇 your ${list}, marked on screen for a few seconds`);
     }
     case 'help':
-      return keep(`🏙️ !task <thing> puts up a building · !done N lights it up · !cancel N takes it down · !tasks lists yours · !where points them out · the streamer's focus blocks build landmarks · mods: !view city|bottom`);
+      return keep(`🏙️ !task <thing> puts up a building · !done N lights it up · !cancel N takes it down · !tasks lists yours · !where points them out · the streamer's focus blocks build landmarks · mods: !view city|cam`);
     case 'tasks':
       return openNums.length
         ? keep(`🏗️ ${openNums.map((i) => `#${i} ${floors[i - 1]!.task}`).join(' · ')}`)

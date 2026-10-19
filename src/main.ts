@@ -79,7 +79,7 @@ const saveGym = (next: Gym) => { if (next === gym) return; gym = next; push(stat
 const calendar = parseCalendar(process.env.THEMES);
 let themeOverride = await readJson<Override>(THEME_FILE, null);
 const theme = () => themeOn(calendar, themeOverride, new Date());
-let view = await readJson<View>(VIEW_FILE, 'city'); // !view city|bottom (src/scene/view.ts)
+let view = await readJson<View>(VIEW_FILE, 'city'); // !view city|cam (src/scene/view.ts)
 const names = () => { const id = theme(); return id ? THEMES[id]!.names : {}; };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
 const BOOT = Date.now(); // overlays reload themselves when boot changes (restart, or an edit to their code), so OBS never runs a stale page
