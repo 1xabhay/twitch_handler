@@ -4,6 +4,7 @@
 # Install once: uv tool install --python 3.12 mflux --with 'pillow<13'. Model (~16 GB) downloads on first run.
 # Logs go to stderr. Knobs: ROOM_FLUX_STEPS, ROOM_FLUX_SEED, ROOM_FLUX_PROMPT, ROOM_FLUX_QUANTIZE (MFLUX_BIN for tests).
 set -eu
+PATH="$HOME/.local/bin:$PATH" # uv tool installs mflux here; the launcher app starts with a bare PATH
 MFLUX_BIN=${MFLUX_BIN:-mflux-generate-flux2-edit}
 STEPS=${ROOM_FLUX_STEPS:-4}
 SEED=${ROOM_FLUX_SEED:-7}

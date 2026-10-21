@@ -1,32 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import { deflateSync } from 'node:zlib';
-import { change, coverage, pgm, pngAlpha, roomPlan, watchStep } from './room.ts';
+import { change, coverage, holdPaint, pgm, pngAlpha, roomPlan, stuckCutout, watchStep } from './room.ts';
 
 describe('roomPlan', () => {
   const data = '/repo/data';
 
   it('captures one frame from the camera, after the auto exposure settles', () => {
-    const p = roomPlan(['desk'], { data, camera: 'HERO11 Black' });
+    const p = roomPlan(['desk'], { data, camera: 'HERO11 Black', scripts: '/s' });
     expect(p.photo).toBe('/repo/data/room-desk-photo.png');
     expect(p.capture).toEqual(['-y', '-f', 'avfoundation', '-framerate', '30', '-video_size', '1920x1080', '-i', 'HERO11 Black', '-ss', '2', '-frames:v', '1', '/repo/data/room-desk-photo.png']);
   });
-  it('stylizes the photo in the anime container into data/room-<name>.png, piped through stdin/stdout (no shared folders)', () => {
-    const p = roomPlan(['desk'], { data, camera: 'cam' });
+  it('paints with FLUX by default, natively (Docker on a Mac has no GPU), photo on stdin, picture on stdout', () => {
+    const p = roomPlan(['desk'], { data, camera: 'cam', scripts: '/repo/scripts' });
     expect(p.out).toBe('/repo/data/room-desk.png');
-    expect(p.stylize).toEqual(['run', '--rm', '-i', 'twitch-handler-anime']);
+    expect(p.stylize).toEqual({ cmd: 'sh', args: ['/repo/scripts/paint-flux.sh'] });
+  });
+  it('ROOM_PAINTER=anime keeps the quick AnimeGANv2 container (no shared folders needed)', () => {
+    const p = roomPlan(['desk'], { data, camera: 'cam', scripts: '/repo/scripts', painter: 'anime' });
+    expect(p.stylize).toEqual({ cmd: 'docker', args: ['run', '--rm', '-i', 'twitch-handler-anime'] });
+  });
+  it('refuses an unknown painter', () => {
+    expect(() => roomPlan(['desk'], { data, camera: 'cam', scripts: '/s', painter: 'oil' })).toThrow(/painter/);
   });
   it('skips the camera when given a photo', () => {
-    const p = roomPlan(['kitchen', '/Users/me/Pictures/kitchen.jpg'], { data, camera: 'cam' });
+    const p = roomPlan(['kitchen', '/Users/me/Pictures/kitchen.jpg'], { data, camera: 'cam', scripts: '/s' });
     expect(p.capture).toBeNull();
     expect(p.photo).toBe('/Users/me/Pictures/kitchen.jpg');
   });
   it('only takes simple room names, so the file always lands in data/', () => {
-    for (const bad of [[], [''], ['../x'], ['a b'], ['Desk']]) expect(() => roomPlan(bad, { data, camera: 'cam' })).toThrow(/usage/);
+    for (const bad of [[], [''], ['../x'], ['a b'], ['Desk']]) expect(() => roomPlan(bad, { data, camera: 'cam', scripts: '/s' })).toThrow(/usage/);
   });
   it('--watch keeps it running, never with a fixed photo', () => {
-    expect(roomPlan(['desk', '--watch'], { data, camera: 'cam' }).watch).toBe(true);
-    expect(roomPlan(['desk'], { data, camera: 'cam' }).watch).toBe(false);
-    expect(() => roomPlan(['desk', '/a.png', '--watch'], { data, camera: 'cam' })).toThrow(/usage/);
+    expect(roomPlan(['desk', '--watch'], { data, camera: 'cam', scripts: '/s' }).watch).toBe(true);
+    expect(roomPlan(['desk'], { data, camera: 'cam', scripts: '/s' }).watch).toBe(false);
+    expect(() => roomPlan(['desk', '/a.png', '--watch'], { data, camera: 'cam', scripts: '/s' })).toThrow(/usage/);
   });
 });
 
@@ -119,5 +126,26 @@ describe('watchStep', () => {
     const b = watchStep(a.s, here(room), 30_000, opts);
     expect(b).toEqual({ s: fresh, restyle: false });
     expect(watchStep(b.s, away(room), 60_000, opts).restyle).toBe(false); // the clock starts over
+  });
+});
+
+describe('stuckCutout', () => {
+  it('a cutout that fills the whole frame has stopped cutting (seen after a camera dropout): the real room shows', () => {
+    expect(stuckCutout(0.99)).toBe(true);
+    expect(stuckCutout(1)).toBe(true);
+  });
+  it('you, even very close to the camera, are not stuck', () => {
+    expect(stuckCutout(0.25)).toBe(false);
+    expect(stuckCutout(0.8)).toBe(false);
+  });
+});
+
+describe('holdPaint', () => {
+  it('FLUX waits while you are live: it shares the GPU with OBS (measured 30 → 22-29 fps, 279 frames skipped per paint)', () => {
+    expect(holdPaint({ painter: 'flux', live: true })).toBe(true);
+    expect(holdPaint({ painter: 'flux', live: false })).toBe(false);
+  });
+  it('the CPU painter never waits', () => {
+    expect(holdPaint({ painter: 'anime', live: true })).toBe(false);
   });
 });

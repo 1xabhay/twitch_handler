@@ -1,14 +1,20 @@
 import { inflateSync } from 'node:zlib';
 import { fitGain, residual } from './light.ts';
 
-// Anime room backdrop: a camera frame of the room, stylized by AnimeGANv2 (docker/anime), shown behind the streamer
-// in OBS (Background Removal on the camera, the image below it). One picture, not a per-frame filter: steady, no
-// flicker, no GPU. With --watch it repaints when the room changes for good (light, things moved), see watchStep.
+// Anime room backdrop: a camera frame of the room, painted anime (FLUX.2 klein via scripts/paint-flux.sh, ~80 s; or
+// AnimeGANv2 in docker/anime, ~15 s, weaker), shown behind the streamer in OBS (a cutout on the camera, the image
+// below it). One picture, not a per-frame filter: steady, no flicker. With --watch it repaints when the room changes for good (light, things moved), see watchStep.
 export const IMAGE = 'twitch-handler-anime';
 
 const USAGE = 'usage: npm run room -- <name> [photo | --watch]   (name: lowercase letters, digits, dashes)';
 
-export const roomPlan = (argv: string[], { data, camera }: { data: string; camera: string }) => {
+const PAINTERS = {
+  flux: (scripts: string) => ({ cmd: 'sh', args: [`${scripts}/paint-flux.sh`] }),
+  anime: () => ({ cmd: 'docker', args: ['run', '--rm', '-i', IMAGE] }),
+};
+
+export const roomPlan = (argv: string[], { data, camera, scripts, painter = 'flux' }: { data: string; camera: string; scripts: string; painter?: string }) => {
+  if (!(painter in PAINTERS)) throw new Error(`unknown painter "${painter}": ${Object.keys(PAINTERS).join(', ')}`);
   const watch = argv.includes('--watch');
   const [name = '', from, ...rest] = argv.filter((a) => a !== '--watch');
   if (!/^[a-z0-9-]+$/.test(name) || (watch && from) || rest.length) throw new Error(USAGE);
@@ -19,8 +25,8 @@ export const roomPlan = (argv: string[], { data, camera }: { data: string; camer
     watch,
     // -ss 2 drops the first frames: the camera's exposure is still settling when ffmpeg opens it.
     capture: from ? null : ['-y', '-f', 'avfoundation', '-framerate', '30', '-video_size', '1920x1080', '-i', camera, '-ss', '2', '-frames:v', '1', photo],
-    // Photo in on stdin, picture out on stdout: works whatever folders Docker/Colima shares.
-    stylize: ['run', '--rm', '-i', IMAGE],
+    // Photo in on stdin, picture out on stdout, for every painter: no shared folders (Colima shares few).
+    stylize: PAINTERS[painter as keyof typeof PAINTERS](scripts),
   };
 };
 
@@ -86,3 +92,10 @@ export const watchStep = (s: Watch, { thumb, present, mask }: { thumb: Uint8Arra
   const since = s.since ?? now;
   return now - since >= settle ? { s: { base: thumb, since: null, clean: true }, restyle: true } : { s: { ...s, since }, restyle: false };
 };
+
+// A cutout filling the frame has stopped cutting (obs-backgroundremoval after a camera dropout): the real room shows
+// on stream. Nobody covers 95% of a desk camera.
+export const stuckCutout = (coverage: number) => coverage > 0.95;
+
+// FLUX shares the GPU with OBS: while live it waits (lighting still follows along); measured 30 → 22-29 fps per paint.
+export const holdPaint = ({ painter, live }: { painter: string; live: boolean }) => painter === 'flux' && live;
