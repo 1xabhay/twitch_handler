@@ -26,8 +26,11 @@ pkill -f "src/main.ts" 2>/dev/null; sleep 1   # never run two bots
 echo "--- \$(date) starting bot" >> "$LOG"
 "$NODE" --env-file=.env src/main.ts >> "$LOG" 2>&1 &
 BOT=\$!
+pkill -f "scripts/room.ts" 2>/dev/null         # anime room watcher (docs/SETUP.md), only when ROOM is set in .env
+ROOM=\$(sed -n 's/^ROOM=//p' .env)
+if [ -n "\$ROOM" ]; then "$NODE" --env-file=.env scripts/room.ts "\$ROOM" --watch >> "$LOG" 2>&1 & ROOMW=\$!; fi
 open -W -a OBS                                 # wait here until OBS quits
-kill \$BOT 2>/dev/null
+kill \$BOT \$ROOMW 2>/dev/null
 echo "--- \$(date) bot stopped (OBS closed)" >> "$LOG"
 LAUNCH
 chmod +x "$APP/Contents/MacOS/launch"

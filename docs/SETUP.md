@@ -42,10 +42,11 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 - Browser source `http://localhost:3001/town`, 1920×1080, top of Sources. Bot must be running.
 
 ## Anime room behind you (optional)
-1. Photo of the empty room from the camera's spot. OBS open (it holds the camera): right-click the camera source → **Screenshot (Source)**, saved in ~/Movies. OBS closed: `make room NAME=desk` grabs the frame itself after a 5 s countdown.
-2. `make room NAME=desk PHOTO=~/Movies/<screenshot>.png` → `data/room-desk.png` (AnimeGANv2 in Docker, ~45 s; first run builds the image, ~1 GB).
-3. Cut yourself out: install the [Background Removal plugin](https://github.com/royshil/obs-backgroundremoval) (check it supports your OBS version), camera source → Filters → + → Background Removal. Light yourself from the front.
-4. Sources → + → Image → `data/room-desk.png`, drag it **below** the camera. Several rooms: Image Slide Show with Transition **Fade** instead.
+1. OBS → Tools → WebSocket Server Settings → **Enable** (lets the scripts ask OBS for the camera frame; the password is read from OBS's config, nothing to copy).
+2. `make room NAME=desk` → `data/room-desk.png`. You can stay seated: your body covers the part behind you anyway. AnimeGANv2 in Docker paints it at 512 px (~15 s; first run builds the image, ~1 GB). With OBS closed, ffmpeg grabs the camera instead. From any photo: `make room NAME=kitchen PHOTO=pic.jpg`.
+3. Keep it fresh: `ROOM=desk` in `.env`, then `make launcher` once (not while the launcher is running). The launcher now runs `make room-watch NAME=desk` with OBS: a tiny thumbnail every 10 s, and when the room stays different for a minute (lamp, daylight, things moved) it repaints; OBS picks up the new file by itself. Tune with `ROOM_CHANGE` (default 20; you moving in the chair measured 4-12, `ROOM_DEBUG=1` prints it) and `ROOM_SETTLE` (seconds, default 60).
+4. Cut yourself out: install the [Background Removal plugin](https://github.com/royshil/obs-backgroundremoval) (check it supports your OBS version). Put the camera in its own scene `Camera`, add that scene as a source in your main scene, and put the Background Removal filter on **that** source, not on the camera itself (the watcher screenshots the camera and must see the whole room). Light yourself from the front.
+5. Sources → + → Image → `data/room-desk.png`, drag it **below** the `Camera` scene source.
 
 ## Test
 Start Recording → talk 30s, clap, `!task test` / `!done` in chat → Stop → File → Show Recordings.
