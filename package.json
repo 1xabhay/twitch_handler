@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --exclude '.claude/**'",
     "typecheck": "tsc --noEmit",
     "start": "node --env-file=.env src/main.ts",
     "preview": "node scripts/preview.ts",

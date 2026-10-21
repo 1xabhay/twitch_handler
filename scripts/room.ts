@@ -2,8 +2,9 @@
 // Usage: npm run room -- <name> [photo | --watch]   → data/room-<name>.png, add it in OBS below the camera (docs/SETUP.md).
 // --watch keeps going: a tiny thumbnail every 10 s, repaints when the room stays changed (src/room.ts watchStep).
 // Paints only while you are away: ROOM_CUTOUT (the OBS source with Background Removal, default Camera) tells, you count
-// as there above ROOM_PRESENT of the frame (default 0.05). ROOM_SETTLE: seconds away first (60). ROOM_CHANGE: how
-// different the empty room must look to repaint a clean picture (0-255, default 20).
+// as there above ROOM_PRESENT of the frame (default 0.05). ROOM_SETTLE: seconds away first (60). ROOM_CHANGE: how much
+// must be left once the light is fitted to repaint a clean picture, i.e. something moved (0-255, default 6).
+// Light follows along: a Color Correction filter "Room light" on ROOM_SOURCE (default Anime room) dims/brightens it.
 // OBS open: asks it for the camera frame over obs-websocket (Tools → WebSocket Server Settings → Enable; password read
 // from OBS's own config). OBS closed: ffmpeg grabs the camera (ROOM_CAMERA, default HERO11 Black). Needs Docker.
 import { execFileSync } from 'node:child_process';
@@ -12,20 +13,28 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { cameraInput, obsAuth } from '../src/obs.ts';
-import { IMAGE, change, coverage, pgm, pngAlpha, roomPlan, watchStep, type Watch } from '../src/room.ts';
+import { ease, fitGain, lightFilter, residual } from '../src/light.ts';
+import { IMAGE, coverage, pgm, pngAlpha, roomPlan, watchStep, type Watch } from '../src/room.ts';
 
 const data = resolve('data');
 const argv = process.argv.slice(2).map((a, i) => (i === 1 && !a.startsWith('--') ? resolve(a) : a));
 const plan = (() => { try { return roomPlan(argv, { data, camera: process.env.ROOM_CAMERA ?? 'HERO11 Black' }); } catch (e) { console.error((e as Error).message); process.exit(1); } })();
 const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { stdio: 'inherit' });
 
-// The camera source's current frame, as OBS renders it: filters included, so Background Removal goes on a nested
-// scene holding the camera, not on the camera itself (docs/SETUP.md). One connection per call: OBS may restart.
-const obsScreenshot = (shot: { sourceName?: string; imageFormat: string; imageWidth?: number; imageHeight?: number } = { imageFormat: 'png' }) => new Promise<Buffer>((ok, fail) => {
+// One obs-websocket connection per batch (OBS may restart between ticks): sends the requests in order, resolves their
+// responseData, rejects on the first failure. Requests may be functions of the earlier answers.
+type Req = [string, object] | ((answers: any[]) => [string, object]);
+const obs = (reqs: Req[]) => new Promise<any[]>((ok, fail) => {
   const cfg = JSON.parse(readFileSync(`${homedir()}/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json`, 'utf8'));
   const ws = new WebSocket(`ws://127.0.0.1:${cfg.server_port}`);
+  const answers: any[] = [];
   const send = (op: number, d: object) => ws.send(JSON.stringify({ op, d }));
-  const call = (requestType: string, requestData = {}) => send(6, { requestType, requestId: requestType, requestData });
+  const next = () => {
+    if (answers.length === reqs.length) return done(() => ok(answers));
+    const r = reqs[answers.length];
+    const [requestType, requestData] = typeof r === 'function' ? r(answers) : r;
+    send(6, { requestType, requestId: String(answers.length), requestData });
+  };
   const timer = setTimeout(() => done(() => fail(new Error('no answer in 10 s'))), 10_000);
   const done = (f: () => void) => { clearTimeout(timer); ws.onclose = null; ws.close(); f(); };
   ws.onerror = () => done(() => fail(new Error('remote control is off (Tools → WebSocket Server Settings → Enable)')));
@@ -33,16 +42,15 @@ const obsScreenshot = (shot: { sourceName?: string; imageFormat: string; imageWi
   ws.onmessage = ({ data }) => {
     const { op, d } = JSON.parse(String(data));
     if (op === 0) send(1, { rpcVersion: 1, ...(d.authentication && { authentication: obsAuth(cfg.server_password, d.authentication.salt, d.authentication.challenge) }) });
-    else if (op === 2) call('GetInputList');
-    else if (op !== 7) return;
-    else if (!d.requestStatus.result) done(() => fail(new Error(d.requestStatus.comment)));
-    else if (d.requestId === 'GetInputList') {
-      const cam = cameraInput(d.responseData.inputs);
-      // shot.sourceName, when given, wins over the camera
-      cam ? call('GetSourceScreenshot', { sourceName: cam, ...shot }) : done(() => fail(new Error('no camera source in OBS')));
-    } else done(() => ok(Buffer.from(d.responseData.imageData.split(',')[1], 'base64')));
+    else if (op === 2) next();
+    else if (op === 7 && !d.requestStatus.result) done(() => fail(new Error(`${d.requestType}: ${d.requestStatus.comment}`)));
+    else if (op === 7) answers.push(d.responseData ?? {}), next();
   };
 });
+const image = (r: { imageData: string }) => Buffer.from(r.imageData.split(',')[1], 'base64');
+// The camera as OBS renders it, unfiltered: Background Removal sits on a nested scene, not the camera (docs/SETUP.md).
+const camera = (a: any[]) => cameraInput(a[0].inputs) ?? (() => { throw new Error('no camera source in OBS'); })();
+const obsScreenshot = async () => image((await obs([['GetInputList', {}], (a) => ['GetSourceScreenshot', { sourceName: camera(a), imageFormat: 'png' }]]))[1]);
 
 mkdirSync(data, { recursive: true });
 if (plan.capture && !plan.watch) {
@@ -66,21 +74,40 @@ const paint = (photo: Buffer) => {
 run('docker', ['build', '-q', '-t', IMAGE, 'docker/anime']); // cached after the first build (~1 GB, a few minutes)
 if (!plan.watch) paint(readFileSync(plan.photo));
 else {
-  const opts = { threshold: Number(process.env.ROOM_CHANGE ?? 20), settle: Number(process.env.ROOM_SETTLE ?? 60) * 1000 };
+  const opts = { threshold: Number(process.env.ROOM_CHANGE ?? 6), settle: Number(process.env.ROOM_SETTLE ?? 60) * 1000 };
   const cutout = process.env.ROOM_CUTOUT ?? 'Camera', present = Number(process.env.ROOM_PRESENT ?? 0.05);
-  let s: Watch = { base: null, since: null, clean: false }, down = false, was = false;
-  console.log(`watching the room every 10 s: repaints once you are away from "${cutout}" for ${opts.settle / 1000} s (and the room changed ≥ ${opts.threshold}), ctrl+c stops`);
+  const backdrop = process.env.ROOM_SOURCE ?? 'Anime room', LIGHT = 'Room light';
+  // The thumbnail the picture was painted from, kept next to it: a restart (every stream) still knows the painted light.
+  const baseFile = plan.out.replace(/\.png$/, '.json');
+  const saved = (() => { try { return Uint8Array.from(Buffer.from(JSON.parse(readFileSync(baseFile, 'utf8')).base, 'base64')); } catch { return null; } })();
+  let s: Watch = { base: saved, since: null, clean: !!saved }, down = false, was = false, gain = 1, shown = NaN;
+  await obs([['CreateSourceFilter', { sourceName: backdrop, filterName: LIGHT, filterKind: 'color_filter_v2', filterSettings: lightFilter(1) }]]).catch(() => {}); // exists already: fine
+  console.log(`watching the room every 10 s: light follows along; repaints once you are away from "${cutout}" for ${opts.settle / 1000} s and something moved (≥ ${opts.threshold})${saved ? '' : ', no painted thumbnail yet'}, ctrl+c stops`);
   for (;;) {
     try {
-      const thumb = pgm(await obsScreenshot({ imageFormat: 'pgm', imageWidth: 64, imageHeight: 36 }));
+      const [, shot, cut] = await obs([
+        ['GetInputList', {}],
+        (a) => ['GetSourceScreenshot', { sourceName: camera(a), imageFormat: 'pgm', imageWidth: 64, imageHeight: 36 }],
+        ['GetSourceScreenshot', { sourceName: cutout, imageFormat: 'png', imageWidth: 64, imageHeight: 36 }],
+      ]);
+      const thumb = pgm(image(shot)), mask = pngAlpha(image(cut));
       // You, as Background Removal sees you: the share of the frame its cutout fills (seated measured 0.24).
-      const you = coverage(pngAlpha(await obsScreenshot({ sourceName: cutout, imageFormat: 'png', imageWidth: 64, imageHeight: 36 })));
-      const step = watchStep(s, { thumb, present: you > present }, Date.now(), opts);
-      const diff = s.base ? change(s.base, thumb).toFixed(1) : '-';
-      if (process.env.ROOM_DEBUG) console.log(`you ${you.toFixed(2)} change ${diff}`); // tuning ROOM_PRESENT / ROOM_CHANGE
+      const you = coverage(mask);
+      const step = watchStep(s, { thumb, present: you > present, mask }, Date.now(), opts);
+      const target = s.base ? fitGain(s.base, thumb, mask) : 1;
+      gain = ease(gain, target, 0.3); // ~30 s to settle: calm, no visible stepping
+      if (process.env.ROOM_DEBUG) console.log(`you ${you.toFixed(2)} gain ${target.toFixed(2)}→${gain.toFixed(2)} moved ${s.base ? residual(s.base, thumb, mask, target).toFixed(1) : '-'}`);
       else if (you > present !== was) console.log(you > present ? 'you are back' : 'you stepped away, repainting the room if you stay away');
       was = you > present;
-      if (step.restyle) paint(await obsScreenshot());
+      if (step.restyle) {
+        paint(await obsScreenshot());
+        writeFileSync(baseFile, JSON.stringify({ base: Buffer.from(thumb).toString('base64') }));
+        gain = 1; // painted in today's light
+      }
+      if (!(Math.abs(gain - shown) < 0.01)) {
+        await obs([['SetSourceFilterSettings', { sourceName: backdrop, filterName: LIGHT, filterSettings: lightFilter(gain) }]]);
+        shown = gain;
+      }
       s = step.s;
       if (down) console.log('OBS back'), down = false;
     } catch (e) {

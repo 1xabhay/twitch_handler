@@ -89,14 +89,15 @@ describe('coverage', () => {
 
 describe('watchStep', () => {
   const opts = { threshold: 12, settle: 60_000 };
-  const room = Uint8Array.from([100, 100]), lamp = Uint8Array.from([160, 160]), dusk = Uint8Array.from([105, 108]);
-  const away = (thumb: Uint8Array) => ({ thumb, present: false }), here = (thumb: Uint8Array) => ({ thumb, present: true });
+  const room = Uint8Array.from([100, 100]), dusk = Uint8Array.from([50, 50]), moved = Uint8Array.from([100, 200]);
+  const clear = new Uint8Array(2);
+  const away = (thumb: Uint8Array) => ({ thumb, present: false, mask: clear }), here = (thumb: Uint8Array) => ({ thumb, present: true, mask: clear });
   const fresh = { base: null, since: null, clean: false };
   const clean = { base: room, since: null, clean: true };
 
   it('never paints while you are in frame, so no ghost of you ends up in the room', () => {
     expect(watchStep(fresh, here(room), 0, opts)).toEqual({ s: fresh, restyle: false });
-    expect(watchStep({ ...clean, since: 0 }, here(lamp), 90_000, opts)).toEqual({ s: clean, restyle: false });
+    expect(watchStep({ ...clean, since: 0 }, here(moved), 90_000, opts)).toEqual({ s: clean, restyle: false });
   });
   it('paints the empty room once you have been away for the settle time', () => {
     const a = watchStep(fresh, away(room), 0, opts);
@@ -104,10 +105,14 @@ describe('watchStep', () => {
     expect(watchStep(a.s, away(room), 30_000, opts).restyle).toBe(false);
     expect(watchStep(a.s, away(room), 60_000, opts)).toEqual({ s: clean, restyle: true });
   });
-  it('a clean picture only gets repainted when the empty room looks different (light, things moved)', () => {
-    expect(watchStep(clean, away(dusk), 0, opts)).toEqual({ s: clean, restyle: false });
-    const a = watchStep(clean, away(lamp), 0, opts);
-    expect(watchStep(a.s, away(lamp), 60_000, opts)).toEqual({ s: { base: lamp, since: null, clean: true }, restyle: true });
+  it('a lighting change never repaints a clean picture: the light follows along instead', () => {
+    const a = watchStep(clean, away(dusk), 0, opts);
+    expect(a).toEqual({ s: clean, restyle: false });
+    expect(watchStep(a.s, away(dusk), 120_000, opts).restyle).toBe(false);
+  });
+  it('something moved in the empty room repaints it once that has lasted the settle time', () => {
+    const a = watchStep(clean, away(moved), 0, opts);
+    expect(watchStep(a.s, away(moved), 60_000, opts)).toEqual({ s: { base: moved, since: null, clean: true }, restyle: true });
   });
   it('coming back before the settle time cancels the repaint', () => {
     const a = watchStep(fresh, away(room), 0, opts);

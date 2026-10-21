@@ -1,4 +1,5 @@
 import { inflateSync } from 'node:zlib';
+import { fitGain, residual } from './light.ts';
 
 // Anime room backdrop: a camera frame of the room, stylized by AnimeGANv2 (docker/anime), shown behind the streamer
 // in OBS (Background Removal on the camera, the image below it). One picture, not a per-frame filter: steady, no
@@ -75,10 +76,12 @@ export const coverage = (alpha: Uint8Array) => alpha.filter((v) => v > 128).leng
 
 // base = the thumbnail of the empty room the picture was painted from; clean = painted with nobody in frame;
 // since = when the reason to repaint began. Paints only while you are away (no ghost of you in the room), once
-// you have been gone `settle` ms, and then only if the picture is dirty or the empty room looks different.
+// you have been gone `settle` ms, and then only if the picture is dirty or something in the room moved. Light
+// alone never repaints: residual() is what is left after the fitted gain, and the light follows along (light.ts).
 export type Watch = { base: Uint8Array | null; since: number | null; clean: boolean };
-export const watchStep = (s: Watch, { thumb, present }: { thumb: Uint8Array; present: boolean }, now: number, { threshold, settle }: { threshold: number; settle: number }) => {
-  const want = !present && (!s.base || !s.clean || change(s.base, thumb) >= threshold);
+export const watchStep = (s: Watch, { thumb, present, mask }: { thumb: Uint8Array; present: boolean; mask: Uint8Array }, now: number, { threshold, settle }: { threshold: number; settle: number }) => {
+  const moved = (base: Uint8Array) => residual(base, thumb, mask, fitGain(base, thumb, mask)) >= threshold;
+  const want = !present && (!s.base || !s.clean || moved(s.base));
   if (!want) return { s: { ...s, since: null }, restyle: false };
   const since = s.since ?? now;
   return now - since >= settle ? { s: { base: thumb, since: null, clean: true }, restyle: true } : { s: { ...s, since }, restyle: false };
