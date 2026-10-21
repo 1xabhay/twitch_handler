@@ -14,10 +14,8 @@ describe('sceneSpec', () => {
     expect(f[1].transform).toEqual({ positionX: 0, positionY: 800, scaleX: 1, scaleY: 1, cropTop: 800 });
     expect(f[2].transform).toEqual({ positionX: 1596, positionY: 24, scaleX: 0.5, scaleY: 0.5 });
   });
-  it('Break: the full pixel city, the camera small in the top right so the skyline stays clear', () => {
-    const b = visible('Break');
-    expect(b.map((i) => i.source)).toEqual(['City full', 'Video Capture Device']);
-    expect(b[1].transform).toEqual({ positionX: 1920 - 480 - 32, positionY: 32, scaleX: 0.25, scaleY: 0.25 });
+  it('Break: the full pixel city alone, no camera (streamer pick: the break belongs to the city)', () => {
+    expect(visible('Break').map((i) => i.source)).toEqual(['City full']);
   });
   it('the mic and music play in both scenes', () => {
     for (const s of spec) expect(s.items.map((i) => i.source)).toEqual(expect.arrayContaining(['Mic/Aux', 'Spotify']));
