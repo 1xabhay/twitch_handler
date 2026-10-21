@@ -1,7 +1,9 @@
 // Anime room backdrop: grabs the room from the camera and stylizes it (src/room.ts has the plan).
 // Usage: npm run room -- <name> [photo | --watch]   → data/room-<name>.png, add it in OBS below the camera (docs/SETUP.md).
 // --watch keeps going: a tiny thumbnail every 10 s, repaints when the room stays changed (src/room.ts watchStep).
-// Knobs: ROOM_CHANGE (how different counts, 0-255, default 20; you moving measured 4-12), ROOM_SETTLE (seconds it must last, default 60).
+// Paints only while you are away: ROOM_CUTOUT (the OBS source with Background Removal, default Camera) tells, you count
+// as there above ROOM_PRESENT of the frame (default 0.05). ROOM_SETTLE: seconds away first (60). ROOM_CHANGE: how
+// different the empty room must look to repaint a clean picture (0-255, default 20).
 // OBS open: asks it for the camera frame over obs-websocket (Tools → WebSocket Server Settings → Enable; password read
 // from OBS's own config). OBS closed: ffmpeg grabs the camera (ROOM_CAMERA, default HERO11 Black). Needs Docker.
 import { execFileSync } from 'node:child_process';
@@ -10,7 +12,7 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { cameraInput, obsAuth } from '../src/obs.ts';
-import { IMAGE, change, pgm, roomPlan, watchStep, type Watch } from '../src/room.ts';
+import { IMAGE, change, coverage, pgm, pngAlpha, roomPlan, watchStep, type Watch } from '../src/room.ts';
 
 const data = resolve('data');
 const argv = process.argv.slice(2).map((a, i) => (i === 1 && !a.startsWith('--') ? resolve(a) : a));
@@ -19,7 +21,7 @@ const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { stdio: 'i
 
 // The camera source's current frame, as OBS renders it: filters included, so Background Removal goes on a nested
 // scene holding the camera, not on the camera itself (docs/SETUP.md). One connection per call: OBS may restart.
-const obsScreenshot = (shot: { imageFormat: string; imageWidth?: number; imageHeight?: number } = { imageFormat: 'png' }) => new Promise<Buffer>((ok, fail) => {
+const obsScreenshot = (shot: { sourceName?: string; imageFormat: string; imageWidth?: number; imageHeight?: number } = { imageFormat: 'png' }) => new Promise<Buffer>((ok, fail) => {
   const cfg = JSON.parse(readFileSync(`${homedir()}/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json`, 'utf8'));
   const ws = new WebSocket(`ws://127.0.0.1:${cfg.server_port}`);
   const send = (op: number, d: object) => ws.send(JSON.stringify({ op, d }));
@@ -36,6 +38,7 @@ const obsScreenshot = (shot: { imageFormat: string; imageWidth?: number; imageHe
     else if (!d.requestStatus.result) done(() => fail(new Error(d.requestStatus.comment)));
     else if (d.requestId === 'GetInputList') {
       const cam = cameraInput(d.responseData.inputs);
+      // shot.sourceName, when given, wins over the camera
       cam ? call('GetSourceScreenshot', { sourceName: cam, ...shot }) : done(() => fail(new Error('no camera source in OBS')));
     } else done(() => ok(Buffer.from(d.responseData.imageData.split(',')[1], 'base64')));
   };
@@ -64,15 +67,19 @@ run('docker', ['build', '-q', '-t', IMAGE, 'docker/anime']); // cached after the
 if (!plan.watch) paint(readFileSync(plan.photo));
 else {
   const opts = { threshold: Number(process.env.ROOM_CHANGE ?? 20), settle: Number(process.env.ROOM_SETTLE ?? 60) * 1000 };
-  let s: Watch = { base: null, since: null }, down = false;
-  console.log(`watching the room every 10 s (change ≥ ${opts.threshold} for ${opts.settle / 1000} s repaints), ctrl+c stops`);
+  const cutout = process.env.ROOM_CUTOUT ?? 'Camera', present = Number(process.env.ROOM_PRESENT ?? 0.05);
+  let s: Watch = { base: null, since: null, clean: false }, down = false, was = false;
+  console.log(`watching the room every 10 s: repaints once you are away from "${cutout}" for ${opts.settle / 1000} s (and the room changed ≥ ${opts.threshold}), ctrl+c stops`);
   for (;;) {
     try {
       const thumb = pgm(await obsScreenshot({ imageFormat: 'pgm', imageWidth: 64, imageHeight: 36 }));
-      const step = watchStep(s, thumb, Date.now(), opts);
+      // You, as Background Removal sees you: the share of the frame its cutout fills (seated measured 0.24).
+      const you = coverage(pngAlpha(await obsScreenshot({ sourceName: cutout, imageFormat: 'png', imageWidth: 64, imageHeight: 36 })));
+      const step = watchStep(s, { thumb, present: you > present }, Date.now(), opts);
       const diff = s.base ? change(s.base, thumb).toFixed(1) : '-';
-      if (process.env.ROOM_DEBUG) console.log(`change ${diff}`); // tuning ROOM_CHANGE: watch this while you move vs the light changes
-      else if (s.since === null && step.s.since !== null) console.log(`room looks different (${diff}), repainting if it lasts`);
+      if (process.env.ROOM_DEBUG) console.log(`you ${you.toFixed(2)} change ${diff}`); // tuning ROOM_PRESENT / ROOM_CHANGE
+      else if (you > present !== was) console.log(you > present ? 'you are back' : 'you stepped away, repainting the room if you stay away');
+      was = you > present;
       if (step.restyle) paint(await obsScreenshot());
       s = step.s;
       if (down) console.log('OBS back'), down = false;
