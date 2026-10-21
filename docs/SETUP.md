@@ -45,7 +45,7 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 One style per scene, nothing over you or the desk robot. Tools → WebSocket Server Settings → **Enable** first. `make obs-scenes` (OBS open) builds two scenes from your camera, mic and music, and leaves your other scenes alone:
 - **Focus**: the real camera full frame + `City band` (`/town?bg=0&sky=0`, buildings only, cropped to the bottom 280 px so it sits along the desk line) + `Timer` (`/timer` card at half size, top right). Uncropped, the band's sky haze and clock covered the camera.
 - **Break**: `City full` (`/town?bg=city`) alone, no camera: the break belongs to the city.
-Switch between them yourself (scene buttons, or a hotkey in Settings → Hotkeys). Make the camera clean in the room, not in software: aim the GoPro (Linear lens) at the plainest wall, crop tight, one soft light in front of you.
+Switch between them yourself (scene buttons, or a hotkey in Settings → Hotkeys). Make the camera clean in the room, not in software: aim the GoPro (Linear lens) at the plainest wall, crop tight, one soft light in front of you. Background blur was tested on this desk (2026-10-21) and dropped: person blur (Background Removal, RVM) blurs the desk robot too and costs 15 ms a frame; its depth (focal) blur blurred the person instead of the kitchen and dropped OBS to 26 fps. No camera filter: 3.3 ms a frame.
 
 **Don't** send obs-websocket `GetInputPropertiesListPropertyItems` for a macOS Audio Capture source's `application` list: it crashed OBS 32.2 twice (null string in obs-websocket). `GetInputSettings` is fine.
 
