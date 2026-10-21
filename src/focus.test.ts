@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PRESETS, announce, current, handleTimer, sceneFor, type Timer } from './focus.ts';
+import { PRESETS, announce, current, handleTimer, type Timer } from './focus.ts';
 
 const MIN = 60_000;
 const mod = { isMod: true };
@@ -118,15 +118,5 @@ describe('break messages celebrate the work so far', () => {
   it('lunch after focus celebrates too', () => {
     const lunch = current({ preset: 'deep', startedAt: 0, pausedAt: null }, (90 + 20 + 90 + 1) * MIN)!;
     expect(announce(lunch, { built: 2, landmarks: 0, finished: [] })).toMatch(/^🎉 block 2\/4 done, 180 min.*lunch/);
-  });
-});
-
-describe('sceneFor', () => {
-  it('breaks and lunch get the full-screen pixel city; the camera rests', () => {
-    expect(sceneFor('break')).toBe('Break');
-    expect(sceneFor('lunch')).toBe('Break');
-  });
-  it('focus, kickoff, replan, recap and no timer keep the clean camera: you are talking or working', () => {
-    for (const k of ['focus', 'kickoff', 'replan', 'recap', null] as const) expect(sceneFor(k)).toBe('Focus');
   });
 });
