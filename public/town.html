@@ -30,7 +30,7 @@
   const params = new URLSearchParams(location.search);
   const SKY = params.get('sky') !== '0'; // ?sky=0 → town only, no backdrop
   ctx.canvas.style.opacity = params.get('alpha') ?? '1'; // ?alpha=0.7 → whole overlay see-through
-  // The view: 'city' (default) = full screen, the old city behind and sky only above HORIZON; 'bottom' = a strip over the
+  // The view: 'city' (default) = full screen, the old city behind and sky only above HORIZON; 'cam' = a strip over the
   // camera, the sky a faint tint. Mods switch it with !view (state.view); ?bg= pins it: city, 0 = bottom, 1 = opaque sky, no old city.
   const HORIZON = 70, PINNED = params.get('bg');
   let BG, CITY, SKY_ALPHA;
@@ -168,8 +168,18 @@
   const landOf = (date, season) => (today?.key === date + season ? today
     : (today = { key: date + season, L: land(date, WIDTH, { biome: LAND ?? undefined, season }) })).L;
   const mouthOf = (date, season) => { const m = landOf(date, season).river(1); return { x: m.x - 8 - 2, w: m.w + 4 }; }; // in street coords
+  // ground by cover, three soils each that wander in patches across the land; meadow and forest follow the season
   const GREEN = { spring: ['#8CC66A', '#5E9E48'], summer: ['#6FA858', '#3E7434'], autumn: ['#B8A050', '#6E7438'], winter: ['#C9D2DA', '#5A6E5A'] };
-  const COVER = { sand: '#D9A066', beach: '#E6D6A6', rock: '#8A8078', snow: '#EEF2F8' };
+  const SOILS = {
+    meadow: (season) => [GREEN[season][0], shade(GREEN[season][0], 0.85), mix(GREEN[season][0], '#D8C860', 0.35)],
+    forest: (season) => [GREEN[season][1], shade(GREEN[season][1], 0.8), mix(GREEN[season][1], '#6A5A3A', 0.3)],
+    field: () => ['#D8C058', '#7FB048', '#A8784A'], // ripe, green, ploughed
+    sand: () => ['#DDB070', '#C4744C', '#EAD2A2'], // ochre, red dirt, pale gravel
+    beach: () => ['#ECDDB0', '#DCC890', '#F4EACC'],
+    rock: (_, mesa) => mesa ? ['#B5653A', '#9C5A3C', '#C98A5A'] : ['#8A8078', '#77727A', '#9A9088'],
+    snow: () => ['#EEF2F8', '#DCE6F2', '#FAFCFF'],
+  };
+  const PAVE = '#A4A6A8', ASPHALT = '#55585E'; // the city stands on concrete, streets run between
   const FACE = { mesa: ['#B5653A', '#9A4E2C'], other: ['#7A7068', '#665E58'] }; // cliff faces, with strata
   const RANGE = { alpine: [40, 'ridge'], fjord: [34, 'ridge'], valley: [14, 'soft'], coast: [16, 'soft'], mesa: [22, 'butte'], archipelago: [8, 'isles'] };
   const mix = (a, b, f) => '#' + [1, 3, 5].map((i) =>
@@ -183,7 +193,9 @@
     ctx.globalCompositeOperation = 'source-atop'; ctx.globalAlpha = fog; ctx.fillStyle = haze; ctx.fillRect(0, 0, W, H);
     const img = ctx.canvas; ctx = keep;
     ctx.imageSmoothingEnabled = false;
+    ctx.filter = 'drop-shadow(1px 1px 0 rgba(15,15,25,0.4))'; // a faint shadow lifts it off the ground
     ctx.drawImage(img, Math.round(p.x - 2 * sc), Math.round(p.y - H * sc), Math.round(W * sc), Math.round(H * sc));
+    ctx.filter = 'none';
   };
   // trees by landscape: pines up high and north, round crowns in valleys, palms on islands, scrub and cacti in the desert
   const wildTree = (x, y, sc, type, season, f, seed) => {
@@ -234,17 +246,23 @@
     const treeType = (c, x) => L.biome === 'archipelago' ? 'palm' : L.biome === 'mesa' ? 'scrub'
       : L.biome === 'alpine' || L.biome === 'fjord' || (L.biome !== 'coast' && L.elev(x, 0.5) > 0.45) ? 'pine' : 'round';
     rows.forEach(({ y, k: depth, s: sc, pieces, river, bridge }, i) => {
-      const fog = 0.35 + 0.5 * (1 - depth), f = (c) => mix(dim(c), haze, fog);
+      const fog = 0.15 + 0.6 * (1 - depth), f = (c) => mix(dim(c), haze, fog);
+      const paved = new Uint8Array(WIDTH); // 2 = under a building, 1 = the street in front of it
+      for (const p of pieces) for (let x = Math.max(0, p.x - 2); x < Math.min(WIDTH, p.x + p.w + 2); x++) paved[x] = x >= p.x && x < p.x + p.w ? 2 : Math.max(paved[x], 1);
       const water = f(shade(k.water[night ? 'night' : 'day'], 1.5)), step = (rows[i + 1]?.y ?? GROUND) - y;
       for (let x = 0; x < WIDTH; x++) {
         const top = tops[i][x], c = L.cover(x, depth);
         if (c === 'water') { px(x, top, 1, GROUND - top, water); if (hash(`w${i}:${x}`) % 23 === 0) px(x, top + 1, 2, 1, mix(water, '#FFFFFF', 0.3)); continue; }
-        const ground = c === 'meadow' ? GREEN[season][0] : c === 'forest' ? GREEN[season][1]
-          : c === 'field' ? ['#C8B860', '#8FB050', '#B89A50'][((x >> 3) + (i >> 1)) % 3] : c === 'rock' && L.biome === 'mesa' ? '#B5653A' : COVER[c];
+        const soils = SOILS[c](season, L.biome === 'mesa');
+        const patch = c === 'field' ? ((x >> 3) + (i >> 1) + (hash(`f${i >> 2}:${x >> 4}`) % 2)) % 3 : Math.floor(fbm(hash(L.seed + c), x / 35, depth * 7) * 2.99);
+        const ground = paved[x] ? (paved[x] === 2 ? PAVE : ASPHALT) : soils[patch];
         const tilt = L.elev(x + 2, depth) - L.elev(x - 2, depth); // light from the left: slopes facing it are brighter
         const col = f(shade(ground, 1 - Math.max(-0.15, Math.min(0.2, tilt * 3))));
         px(x, top, 1, GROUND - top, col);
         px(x, top, 1, 1, mix(col, '#FFFFFF', 0.12));
+        const grain = hash(`s${i}:${x}`); // speckles: grit, pebbles, tufts
+        if (grain % 3 === 0) px(x, top + 1 + (grain >> 4) % Math.max(1, step), 1, 1, mix(col, grain % 2 ? '#000000' : '#FFFFFF', 0.12));
+        if (paved[x] === 1 && x % 4 === 0) px(x, top + 1, 1, 1, f('#C8C060')); // lane marks
         const drop = (tops[i + 1]?.[x] ?? GROUND) - top - step; // more than the usual row gap: a cliff face toward us
         if (drop > 3) {
           const [rock, line] = FACE[L.biome === 'mesa' ? 'mesa' : 'other'], face = (tops[i + 1]?.[x] ?? GROUND) - drop;
@@ -341,7 +359,7 @@
   };
 
   // --- state ---------------------------------------------------------------
-  let scene = null, town = {}, lots = [], builders = [], sunPhase = null, timer = null, sunTimes = null, realSky = null, seenDone = null;
+  let scene = null, town = {}, lots = [], builders = [], sunPhase = null, timer = null, sunTimes = null, realSky = null, realWeather = null, seenDone = null;
   const pieceKey = (id, at) => `${id}:${at}`;
   const walkers = new Map();   // id -> Walker
   const doneCounts = new Map(); // id -> finished floors, to spot a fresh !done and jump
@@ -355,7 +373,7 @@
       if (doneCounts.has(id) && n > doneCounts.get(id)) jumps.set(id, now + 1200);
       doneCounts.set(id, n);
     }
-    if (!PINNED) setView(msg.view === 'bottom' ? '0' : 'city');
+    if (!PINNED) setView(msg.view === 'cam' ? '0' : 'city');
     const d = new Date(); // city view: the street leaves the river mouth open so the river reaches the bay
     lots = cityLayout(msg.town, WIDTH - 16, CITY ? mouthOf(d.toLocaleDateString('en-CA'), seasonOf(d.getMonth())) : undefined); // only changes with state
     const doneNow = new Set(lots.flatMap((l) => [
@@ -364,14 +382,14 @@
     seenDone = doneNow;
     const wanted = msg.theme ?? null; // a new theme washes in as a tide (src/scene/theme.ts)
     scene = scene ? steer(scene, wanted, Date.now()) : settled(wanted);
-    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null; sunTimes = msg.sun ?? null; realSky = msg.sky ?? null;
+    town = msg.town; builders = msg.builders; sunPhase = msg.phase ?? null; timer = msg.timer ?? null; sunTimes = msg.sun ?? null; realSky = msg.sky ?? null; realWeather = msg.weather ?? null;
   };
 
   let last = performance.now();
   const frame = (t) => {
     const dt = Math.min(t - last, 500); last = t;
     const nowDate = new Date(), phase = sunPhase ?? phaseAt(nowDate.getHours()), season = seasonOf(nowDate.getMonth());
-    const weather = weatherOn(nowDate.toLocaleDateString('en-CA'), season);
+    const weather = realWeather ?? weatherOn(nowDate.toLocaleDateString('en-CA'), season);
     const xOf = (l) => 8 + l.x;
     const baseOf = (l) => (l.row === 'back' ? GROUND - BACK : GROUND);
     const topOf = (l) => baseOf(l) - l.h - l.storeys.length * FH;

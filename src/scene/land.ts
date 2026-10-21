@@ -68,6 +68,8 @@ export const land = (seed: string, width: number, { biome, season = 'summer' }: 
     if (e < T.water) return 'water';
     const steep = Math.max(Math.abs(elev(x + 4, k) - elev(x - 4, k)), Math.abs(e - elev(x, Math.min(1, k + 0.05)))) * 2;
     if (e > snowline && steep < 0.5) return 'snow';
+    const r = river(k), fromRiver = Math.abs(x + 0.5 - (r.x + r.w / 2)) - r.w / 2;
+    if (b === 'mesa' && fromRiver < 6 + 16 * k && steep < 0.3) return hash(`${x >> 3}:${Math.round(k * 20)}`) % 3 ? 'field' : 'meadow'; // irrigated green along the desert river
     if (steep > (b === 'mesa' ? 0.12 : 0.35)) return 'rock';
     if (T.beach && e < T.water + 0.04) return 'beach';
     const wet = fbm(s + 13, x / 60, k * 5);

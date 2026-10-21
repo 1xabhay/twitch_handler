@@ -30,6 +30,7 @@ describe('land', () => {
     expect(at('valley', 'field')).toBeGreaterThan(0);
     expect(at('mesa', 'rock')).toBeGreaterThan(at('valley', 'rock'));
     expect(at('archipelago', 'beach')).toBeGreaterThan(0);
+    expect(at('mesa', 'field') + at('mesa', 'meadow')).toBeGreaterThan(0); // green along the desert river
   });
 
   it('water lies flat at its level, the river runs as water down to us', () => {
