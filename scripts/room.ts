@@ -10,10 +10,10 @@
 // ROOM_PAINTER: flux (default, scripts/paint-flux.sh, needs mflux) or anime (Docker AnimeGANv2).
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { cameraFix, cameraInput, cameras, obsAuth } from '../src/obs.ts';
+import { cameraFix, cameraInput, cameras } from '../src/obs.ts';
+import { obs, type Req } from '../src/obsws.ts';
 import { ease, fitGain, lightFilter, residual } from '../src/light.ts';
 import { IMAGE, blankFrame, coverage, holdPaint, pgm, pngAlpha, roomPlan, stuckCutout, watchStep, type Watch } from '../src/room.ts';
 
@@ -22,32 +22,6 @@ const argv = process.argv.slice(2).map((a, i) => (i === 1 && !a.startsWith('--')
 const plan = (() => { try { return roomPlan(argv, { data, camera: process.env.ROOM_CAMERA ?? 'HERO11 Black', scripts: resolve('scripts'), painter: process.env.ROOM_PAINTER }); } catch (e) { console.error((e as Error).message); process.exit(1); } })();
 const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { stdio: 'inherit' });
 
-// One obs-websocket connection per batch (OBS may restart between ticks): sends the requests in order, resolves their
-// responseData, rejects on the first failure. Requests may be functions of the earlier answers.
-type Req = [string, object] | ((answers: any[]) => [string, object]);
-const obs = (reqs: Req[]) => new Promise<any[]>((ok, fail) => {
-  const cfg = JSON.parse(readFileSync(`${homedir()}/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json`, 'utf8'));
-  const ws = new WebSocket(`ws://127.0.0.1:${cfg.server_port}`);
-  const answers: any[] = [];
-  const send = (op: number, d: object) => ws.send(JSON.stringify({ op, d }));
-  const next = () => {
-    if (answers.length === reqs.length) return done(() => ok(answers));
-    const r = reqs[answers.length];
-    const [requestType, requestData] = typeof r === 'function' ? r(answers) : r;
-    send(6, { requestType, requestId: String(answers.length), requestData });
-  };
-  const timer = setTimeout(() => done(() => fail(new Error('no answer in 10 s'))), 10_000);
-  const done = (f: () => void) => { clearTimeout(timer); ws.onclose = null; ws.close(); f(); };
-  ws.onerror = () => done(() => fail(new Error('remote control is off (Tools → WebSocket Server Settings → Enable)')));
-  ws.onclose = (e) => done(() => fail(new Error(`closed the connection (${e.code} ${e.reason})`)));
-  ws.onmessage = ({ data }) => {
-    const { op, d } = JSON.parse(String(data));
-    if (op === 0) send(1, { rpcVersion: 1, ...(d.authentication && { authentication: obsAuth(cfg.server_password, d.authentication.salt, d.authentication.challenge) }) });
-    else if (op === 2) next();
-    else if (op === 7 && !d.requestStatus.result) done(() => fail(new Error(`${d.requestType}: ${d.requestStatus.comment}`)));
-    else if (op === 7) answers.push(d.responseData ?? {}), next();
-  };
-});
 const image = (r: { imageData: string }) => Buffer.from(r.imageData.split(',')[1], 'base64');
 // The camera as OBS renders it, unfiltered: Background Removal sits on a nested scene, not the camera (docs/SETUP.md).
 const camera = (a: any[]) => cameraInput(a[0].inputs) ?? (() => { throw new Error('no camera source in OBS'); })();

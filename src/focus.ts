@@ -111,3 +111,6 @@ export const handleTimer = (timer: Timer, { isMod }: { isMod: boolean }, text: s
       return keep('try: !timer start [shift|pomodoro|deep] · pause · resume · skip · stop');
   }
 };
+
+// OBS scene per phase: one thing on screen at a time. Breaks hand the stage to the pixel city, the rest is the camera.
+export const sceneFor = (kind: Kind | null) => (kind === 'break' || kind === 'lunch' ? 'Break' : 'Focus');

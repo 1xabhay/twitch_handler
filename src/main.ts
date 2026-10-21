@@ -13,7 +13,7 @@ import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
 import { phaseFromSun, weatherOfCode, type Weather } from './scene/ambient.ts';
 import { skyAt } from './scene/sky.ts';
 import { FOCUS_ID, nameOf } from './scene/city.ts';
-import { announce, current, handleTimer, PRESETS, type Current, type Timer } from './focus.ts';
+import { announce, current, handleTimer, PRESETS, sceneFor, type Current, type Timer } from './focus.ts';
 import { canRequest, nowPlaying, parseMusic } from './music.ts';
 import { spotifyClient } from './spotify.ts';
 import { handleLink } from './links.ts';
@@ -23,6 +23,7 @@ import { handleView, type View } from './scene/view.ts';
 import { handleTheme, parseCalendar, themeOn, THEMES, type Override } from './scene/theme.ts';
 import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
 import { onceADay } from './once.ts';
+import { obs } from './obsws.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -161,12 +162,18 @@ setInterval(() => { // workouts fire at breaks (or anytime without a focus timer
   const by = r.workout.by.length ? `, courtesy of ${r.workout.by.map((n) => `@${n}`).join(' ')}` : '';
   say(`💪 workout time! isamy does ${r.workout.name}${by}`).catch((err) => console.error('workout announce failed', err));
 }, 1000);
+// Focus = clean camera with the slim city band, Break = the full pixel city (docs/SETUP.md). Needs OBS scenes named
+// Focus and Break and obs-websocket on; without them it says so once and the stream carries on as is.
+let sceneWarned = false;
+const switchScene = (sceneName: string) => void obs([['SetCurrentProgramScene', { sceneName }]])
+  .then(() => console.log(`scene → ${sceneName}`), (err) => sceneWarned || (sceneWarned = true, console.log(`scene switch off: ${err.message}`)));
 setInterval(() => { // announce each phase change; the overlay counts down on its own
   if (!timer) return;
   const c = current(timer, Date.now());
   if ((c?.i ?? null) === lastPhase) return;
   const was = lastPhase === null ? null : PRESETS[timer.preset][lastPhase]!;
   lastPhase = c?.i ?? null; // claim the change now: the landmark write below is async
+  switchScene(sceneFor(c?.phase.kind ?? null));
   // break roll call: who finished something during the focus block that just ended (a check-in, not a leaderboard)
   const finished = was?.kind === 'focus' ? finishedSince(town, Date.now() - was.min * 60_000) : [];
   void landmarkStep(was, c, true).then((opened) => {
