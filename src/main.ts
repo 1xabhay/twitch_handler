@@ -23,6 +23,8 @@ import { handleView, type View } from './scene/view.ts';
 import { handleTheme, parseCalendar, themeOn, THEMES, type Override } from './scene/theme.ts';
 import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
 import { onceADay } from './once.ts';
+import { cameraFix, cameraInput, cameras } from './obs.ts';
+import { obs } from './obsws.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -226,6 +228,20 @@ listener.onChannelChatMessage(channel, bot, (e) => handleChat(e).catch((err) => 
 
 // Chat read aloud on the Mac, one line at a time. OBS captures only Spotify, so only the streamer hears it.
 let tts = true, speaking = Promise.resolve();
+// The GoPro Webcam app hands the camera a new ID on every reconnect and OBS keeps the old one: a blank camera until
+// someone re-picks it. Every minute, re-point OBS at the camera by name (cameraFix). Quiet while OBS is closed.
+setInterval(async () => {
+  try {
+    const [{ inputs }] = await obs([['GetInputList', {}]]);
+    const name = cameraInput(inputs);
+    if (!name) return;
+    const [{ inputSettings }] = await obs([['GetInputSettings', { inputName: name }]]);
+    const fix = cameraFix(inputSettings, cameras((await promisify(execFile)('system_profiler', ['SPCameraDataType'])).stdout));
+    if (!fix) return;
+    await obs([['SetInputSettings', { inputName: name, inputSettings: fix }]]);
+    console.log(`camera ${fix.device_name} had a new ID, re-pointed OBS at ${fix.device}`);
+  } catch { /* OBS closed or websocket off */ }
+}, 60_000);
 const speak = (text: string) => { console.log(`tts: ${text}`); speaking = speaking.then(() => promisify(execFile)('say', [text])).then(() => {}, (err) => console.error('say failed', err)); };
 
 const handleChat = async (e: EventSubChannelChatMessageEvent) => {
