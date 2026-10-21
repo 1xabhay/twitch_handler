@@ -16,7 +16,7 @@ for (const scene of sceneSpec({ camera, audio, town: 'http://localhost:3001/town
   for (const item of scene.items) { // bottom to top: each new item lands on top
     const web = scene.inputs.find((i) => i.name === item.source);
     const [{ sceneItemId }] = await obs([web
-      ? ['CreateInput', { sceneName: scene.name, inputName: web.name, inputKind: 'browser_source', inputSettings: { url: web.url, width: 1920, height: 1080 } }]
+      ? ['CreateInput', { sceneName: scene.name, inputName: web.name, inputKind: 'browser_source', inputSettings: { url: web.url, width: web.width, height: web.height } }]
       : ['CreateSceneItem', { sceneName: scene.name, sourceName: item.source }]]);
     if (item.transform) await obs([['SetSceneItemTransform', { sceneName: scene.name, sceneItemId, sceneItemTransform: item.transform }]]);
   }

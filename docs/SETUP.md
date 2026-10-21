@@ -43,7 +43,7 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 
 ## Layout: real desk, pixel world
 One style per scene, nothing over you or the desk robot. Tools → WebSocket Server Settings → **Enable** first. `make obs-scenes` (OBS open) builds two scenes from your camera, mic and music, and leaves your other scenes alone:
-- **Focus**: the real camera full frame + `City band` (`/town?bg=0`, the slim pixel strip with the sky clock and timer).
+- **Focus**: the real camera full frame + `City band` (`/town?bg=0&sky=0`, buildings only, cropped to the bottom 280 px so it sits along the desk line) + `Timer` (`/timer` card at half size, top right). Uncropped, the band's sky haze and clock covered the camera.
 - **Break**: `City full` (`/town?bg=city`) + the camera small, top right (480x270).
 Switch between them yourself (scene buttons, or a hotkey in Settings → Hotkeys). Make the camera clean in the room, not in software: aim the GoPro (Linear lens) at the plainest wall, crop tight, one soft light in front of you.
 
