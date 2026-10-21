@@ -1,7 +1,7 @@
 # One front door for the project. `make` lists everything.
 # The bot runs on the Mac (it needs OBS, `say` and the browser login); Docker for clean-machine checks and the anime model.
 .DEFAULT_GOAL := help
-.PHONY: help install check test typecheck start preview login-bot login-channel login-spotify rewards-check launcher room room-watch docker-check
+.PHONY: help install check test typecheck start preview login-bot login-channel login-spotify rewards-check launcher room room-watch obs-scenes docker-check
 
 help: ## list commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-15s %s\n", $$1, $$2}'
@@ -43,6 +43,9 @@ room: ## anime room backdrop: make room NAME=desk [PHOTO=pic.png] → data/room-
 
 room-watch: ## keep the anime room fresh while OBS runs (the launcher does this when ROOM is in .env)
 	npm run room -- $(NAME) --watch
+
+obs-scenes: ## build the Focus and Break OBS scenes (clean camera / full pixel city), keeps the others
+	npm run obs:scenes
 
 docker-check: ## make check in a clean Node 25 container (no secrets copied in)
 	docker build -t twitch-handler-check . && docker run --rm twitch-handler-check

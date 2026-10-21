@@ -15,7 +15,8 @@
     "rewards:check": "node --env-file=.env scripts/rewards-check.ts",
     "login:spotify": "node --env-file=.env scripts/spotify-login.ts",
     "launcher": "sh scripts/make-launcher.sh",
-    "room": "node --env-file-if-exists=.env scripts/room.ts"
+    "room": "node --env-file-if-exists=.env scripts/room.ts",
+    "obs:scenes": "node scripts/obs-scenes.ts"
   },
   "keywords": [],
   "author": "",

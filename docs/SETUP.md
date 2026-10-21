@@ -41,7 +41,14 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 ## Overlay
 - Browser source `http://localhost:3001/town`, 1920×1080, top of Sources. Bot must be running.
 
-## Anime room behind you (optional)
+## Layout: real desk, pixel world (default)
+One style per scene, nothing over you or the desk robot. `make obs-scenes` (OBS open) builds two scenes from your camera, mic and music, and leaves your other scenes alone:
+- **Focus**: the real camera full frame + `City band` (`/town?bg=0`, the slim pixel strip with the sky clock and timer).
+- **Break**: `City full` (`/town?bg=city`) + the camera small, top right (480x270).
+The bot switches to Break on breaks and lunch and back to Focus otherwise (sceneFor in src/focus.ts); without those scenes it logs once and changes nothing. Make the camera clean in the room, not in software: aim the GoPro (Linear lens) at the plainest wall, crop tight, one soft light in front of you.
+
+## Anime room behind you (experiment, off)
+Off by default since 2026-10-21: mixing a painted room with pixel art and a cutout read as cluttered. Turn it back on with `ROOM=desk` in `.env`.
 1. OBS → Tools → WebSocket Server Settings → **Enable** (lets the scripts ask OBS for the camera frame; the password is read from OBS's config, nothing to copy).
 2. `make room NAME=desk` → `data/room-desk.png`. Best with the room empty. The painter is FLUX.2 [klein] 4B (Apache-2.0) via mflux, run natively (Docker on a Mac has no GPU): install once with `uv tool install --python 3.12 mflux --with 'pillow<13'` (Pillow 13 breaks mflux); the model (~16 GB) downloads on first use; ~80 s per paint at 8-bit on an M2 Pro 16 GB. **It never paints while you are live**: it shares the GPU with OBS (measured 30 → 22-29 fps, 279 skipped frames per paint); repaints wait until you're offline and the light keeps following meanwhile. `ROOM_PAINTER=anime` uses the old AnimeGANv2 in Docker instead (~15 s, CPU, weaker look). With OBS closed, ffmpeg grabs the camera. From any photo: `make room NAME=kitchen PHOTO=pic.jpg`.
 3. Cut yourself out. Put the camera in its own scene `Camera`, add that scene as a source in your main scene, and put the cutout filter on **that** source, not on the camera itself (the watcher screenshots the camera and must see the whole room). Light yourself from the front. Compared side by side on this setup (2026-10-21):
