@@ -18,7 +18,7 @@ Twitch handler app. Open source (MIT), public at github.com/1xabhay/twitch_handl
 
 ## Stack
 - TypeScript (Node 25, ESM, run TS directly), Twurple v8 (`auth`, `api`, `eventsub-ws`) — chat via EventSub, not IRC.
-- Vitest for tests (`npm test`), `npm run typecheck`. twitch-cli for mocking events.
+- `make` is the front door (lists commands; wraps npm scripts). `make check` = Vitest + tsc before every commit; `make docker-check` runs it in a clean Node 25 container. The bot stays on the host (OBS, `say`, browser logins), Docker only for checks/future Python helpers. twitch-cli for mocking events.
 - Pure functional core in `src/*.ts` with `*.test.ts` beside it; Twitch/OBS I/O only at the edges.
 
 ## Running

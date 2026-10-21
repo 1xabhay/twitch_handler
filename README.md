@@ -236,11 +236,15 @@ Decisions are logged as they happen in [CLAUDE.md](CLAUDE.md) (ledger); research
 
 ## Development
 
+`make` lists every command (each wraps an npm script, so `npm run …` works too).
+
 ```sh
-npm test            # Vitest
-npm run typecheck   # tsc --noEmit
-npm run preview     # overlay with a demo city, no Twitch (PORT=3005)
+make check                              # Vitest + tsc, run before every commit
+make preview THEME=onepiece PHASE=night # overlay with a demo city, no Twitch (PORT=3005)
+make docker-check                       # same checks in a clean Node 25 container
 ```
+
+The bot runs on the host, not in Docker: it drives OBS, speaks with macOS `say` and logs in through a browser.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Themes: [docs/THEMES.md](docs/THEMES.md).
 
