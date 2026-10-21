@@ -231,7 +231,7 @@ sequenceDiagram
 | **Tide state machine (settled / turning), starts settled** | A visible but calm switch; OBS reloads never replay it | Mixed look for 6 s |
 | **Street logic as a gate circuit** | Behaviour like "lamps on at night or in rain" is data, readable and testable | Gates are boolean; thresholds are inputs |
 | **Shape carries state, calm motion** | Colourblind-safe; co-working viewers aren't distracted | No loud alerts by design |
-| **Real desk, pixel world: one style per scene** | Focus = the real camera with a slim city band, Break = the full pixel city; the bot switches by timer phase (`make obs-scenes`). One illustration style (pixel art), nothing covers the streamer or the desk robot | The anime-room backdrop (cutout + painted room) is off by default (`ROOM=` empty); kept as an experiment |
+| **Real desk, pixel world: one style per scene** | Focus = the real camera with a slim city band, Break = the full pixel city (`make obs-scenes`), switched by hand. One illustration style (pixel art), nothing covers the streamer or the desk robot | Tried and removed: an AI-painted anime room behind a person cutout; three styles in one frame read as cluttered, and it cost GPU and upkeep |
 
 Decisions are logged as they happen in [CLAUDE.md](CLAUDE.md) (ledger); research notes are in [docs/](docs/).
 

@@ -1,6 +1,6 @@
 // The two OBS scenes of "real desk, pixel world": Focus = the real camera, full frame, with the slim pixel-city band;
-// Break = the full pixel city, camera small in a corner. The bot switches between them by phase (sceneFor in focus.ts);
-// scripts/obs-scenes.ts builds them. Items are listed bottom to top. Canvas 1920x1080.
+// Break = the full pixel city, camera small in a corner. The streamer switches by hand; scripts/obs-scenes.ts builds
+// them. Items are listed bottom to top. Canvas 1920x1080.
 type Item = { source: string; transform?: { positionX: number; positionY: number; scaleX: number; scaleY: number } };
 export type SceneSpec = { name: string; inputs: { name: string; url: string }[]; items: Item[] };
 

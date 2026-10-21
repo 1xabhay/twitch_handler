@@ -29,11 +29,4 @@ describe('npm run launcher', () => {
   it('stops the bot when OBS quits', () => {
     expect(body.indexOf('kill $BOT')).toBeGreaterThan(body.indexOf('open -W -a OBS'));
   });
-  it('keeps the anime room fresh while OBS runs when ROOM is set in .env, and stops it with OBS', () => {
-    const kill = body.indexOf('pkill -f "scripts/room.ts"'), start = body.indexOf('scripts/room.ts "$ROOM" --watch'), obs = body.indexOf('open -W -a OBS');
-    expect([kill, start].every((i) => i >= 0)).toBe(true);
-    expect(kill < start && start < obs).toBe(true);
-    expect(body).toMatch(/if \[ -n "\$ROOM" \]/);
-    expect(body.slice(obs)).toMatch(/kill .*\$ROOMW/);
-  });
 });
