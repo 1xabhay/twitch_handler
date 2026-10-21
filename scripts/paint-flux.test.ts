@@ -56,5 +56,10 @@ sips -z "$h" "$w" "$in" --out "$out" >/dev/null
       const { args } = paint({ ROOM_FLUX_STEPS: '7', ROOM_FLUX_SEED: '123', ROOM_FLUX_PROMPT: 'watercolour room' });
       expect([arg(args, '--steps'), arg(args, '--seed'), arg(args, '--prompt')]).toEqual(['7', '123', 'watercolour room']);
     });
+    it('quantizes to 8 bits by default so 16 GB Macs do not swap; ROOM_FLUX_QUANTIZE=0 runs full precision', () => {
+      expect(arg(paint().args, '--quantize')).toBe('8');
+      expect(arg(paint({ ROOM_FLUX_QUANTIZE: '4' }).args, '--quantize')).toBe('4');
+      expect(paint({ ROOM_FLUX_QUANTIZE: '0' }).args).not.toContain('--quantize');
+    });
   });
 });
