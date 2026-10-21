@@ -10,7 +10,7 @@ import { greet, type Viewers } from './greet.ts';
 import { builtToday, finishedSince, handleCommand, newDay, stepLandmark, type Town } from './town.ts';
 import { codeRev, startOverlay } from './overlay.ts';
 import { activeBuilders, handleCrowd, type Crowd } from './scene/crowd.ts';
-import { phaseFromSun } from './scene/ambient.ts';
+import { phaseFromSun, weatherOfCode, type Weather } from './scene/ambient.ts';
 import { skyAt } from './scene/sky.ts';
 import { FOCUS_ID, nameOf } from './scene/city.ts';
 import { announce, current, handleTimer, PRESETS, type Current, type Timer } from './focus.ts';
@@ -94,7 +94,16 @@ const sunTimes = () => {
 };
 const sunPhase = () => { const t = sunTimes(); return t && phaseFromSun(Date.now(), t); };
 const realSky = () => (sunTimes() ? skyAt(new Date(), { lat, lon }) : undefined); // sun, moon and stars where they really are
-const state = () => ({ type: 'state', boot: boot(), theme: theme(), view, phase: sunPhase(), sun: sunTimes(), sky: realSky(), timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+let weather: Weather | undefined; // real weather at SUN_LAT/SUN_LON (Open-Meteo, no key); unset → the overlay's daily dice
+const checkWeather = async () => {
+  if (!sunTimes()) return;
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code`);
+    weather = weatherOfCode((await r.json()).current.weather_code);
+  } catch (e) { console.error('weather check failed', e); }
+};
+checkWeather(); setInterval(checkWeather, 15 * 60_000);
+const state = () => ({ type: 'state', boot: boot(), theme: theme(), view, phase: sunPhase(), sun: sunTimes(), sky: realSky(), weather, timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 let lastTheme = theme(); // the calendar flips at midnight: say so once (a restart on a theme day stays quiet)
 setInterval(() => { // let quiet builders clock out

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catRoof, drift, phaseAt, phaseFromSun, seasonOf, weatherOn, celestial, project, carrier } from './ambient.ts';
+import { catRoof, drift, phaseAt, phaseFromSun, seasonOf, weatherOn, weatherOfCode, celestial, project, carrier } from './ambient.ts';
 
 describe('phaseAt (local hour)', () => {
   it.each([
@@ -32,6 +32,14 @@ describe('weatherOn', () => {
     expect(days.some((d) => weatherOn(d, 'summer') === 'snow')).toBe(false);
     expect(days.some((d) => weatherOn(d, 'winter') === 'rain')).toBe(false);
     expect(days.some((d) => weatherOn(d, 'winter') === 'snow')).toBe(true);
+  });
+});
+
+describe('weatherOfCode (real weather, WMO codes from Open-Meteo)', () => {
+  it('drizzle, rain, showers and storms rain; snow falls; the rest is clear', () => {
+    expect([0, 3, 45].map(weatherOfCode)).toEqual(['clear', 'clear', 'clear']);
+    expect([51, 61, 67, 80, 95, 99].map(weatherOfCode)).toEqual(Array(6).fill('rain'));
+    expect([71, 77, 85, 86].map(weatherOfCode)).toEqual(Array(4).fill('snow'));
   });
 });
 

@@ -35,7 +35,7 @@ Then type `/mod <botname>` in your chat and add the overlays below to OBS as **B
 | `http://localhost:3001/music` | 600×140 | now-playing card |
 | `http://localhost:3001/workout` | 600×160 | Channel Points workout queue |
 
-Optional `.env` extras: `SUN_LAT`/`SUN_LON` (real sun, moon and stars for your city), `THEMES` (theme days), Spotify (`SPOTIFY_CLIENT_ID`, `SPOTIFY_PLAYLIST`, then `npm run login:spotify`, Premium needed), links (`LINK_DISCORD`, `LINK_INSTA`, `LINK_PLAYLIST`) and a Discord go-live post (`DISCORD_WEBHOOK`). On macOS, `npm run launcher` builds a one-click app that starts the bot with OBS.
+Optional `.env` extras: `SUN_LAT`/`SUN_LON` (real sun, moon, stars and weather for your city), `THEMES` (theme days), Spotify (`SPOTIFY_CLIENT_ID`, `SPOTIFY_PLAYLIST`, then `npm run login:spotify`, Premium needed), links (`LINK_DISCORD`, `LINK_INSTA`, `LINK_PLAYLIST`) and a Discord go-live post (`DISCORD_WEBHOOK`). On macOS, `npm run launcher` builds a one-click app that starts the bot with OBS.
 
 ## Features
 

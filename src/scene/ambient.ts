@@ -23,6 +23,10 @@ export const seasonOf = (month: number): Season =>
 export const weatherOn = (date: string, season: Season): Weather =>
   hash(date) % 6 !== 0 ? 'clear' : season === 'winter' ? 'snow' : 'rain';
 
+// Real weather: a WMO weather code (Open-Meteo) → what falls from our sky. Fog and cloud stay 'clear'.
+export const weatherOfCode = (code: number): Weather =>
+  (code >= 71 && code <= 77) || code === 85 || code === 86 ? 'snow' : code >= 51 && code <= 99 ? 'rain' : 'clear';
+
 // x position of a drifting thing (cloud, bird) at time t ms; wraps with a 30px margin.
 export const drift = (seed: number, t: number, width: number, pxPerSec: number) => {
   const span = width + 60;
