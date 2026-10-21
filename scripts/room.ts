@@ -13,9 +13,9 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { cameraInput, obsAuth } from '../src/obs.ts';
+import { cameraFix, cameraInput, cameras, obsAuth } from '../src/obs.ts';
 import { ease, fitGain, lightFilter, residual } from '../src/light.ts';
-import { IMAGE, coverage, holdPaint, pgm, pngAlpha, roomPlan, stuckCutout, watchStep, type Watch } from '../src/room.ts';
+import { IMAGE, blankFrame, coverage, holdPaint, pgm, pngAlpha, roomPlan, stuckCutout, watchStep, type Watch } from '../src/room.ts';
 
 const data = resolve('data');
 const argv = process.argv.slice(2).map((a, i) => (i === 1 && !a.startsWith('--') ? resolve(a) : a));
@@ -81,7 +81,7 @@ else {
   // The thumbnail the picture was painted from, kept next to it: a restart (every stream) still knows the painted light.
   const baseFile = plan.out.replace(/\.png$/, '.json');
   const saved = (() => { try { return Uint8Array.from(Buffer.from(JSON.parse(readFileSync(baseFile, 'utf8')).base, 'base64')); } catch { return null; } })();
-  let s: Watch = { base: saved, since: null, clean: !!saved }, down = false, was = false, held = false, gain = 1, shown = NaN;
+  let s: Watch = { base: saved, since: null, clean: !!saved }, down = false, was = false, held = false, blank = false, gain = 1, shown = NaN;
   const painter = process.env.ROOM_PAINTER ?? 'flux';
   await obs([['CreateSourceFilter', { sourceName: backdrop, filterName: LIGHT, filterKind: 'color_filter_v2', filterSettings: lightFilter(1) }]]).catch(() => {}); // exists already: fine
   console.log(`watching the room every 10 s: light follows along; repaints once you are away from "${cutout}" for ${opts.settle / 1000} s and something moved (≥ ${opts.threshold})${saved ? '' : ', no painted thumbnail yet'}, ctrl+c stops`);
@@ -94,6 +94,17 @@ else {
         ['GetStreamStatus', {}],
       ]);
       const thumb = pgm(image(shot)), mask = pngAlpha(image(cut));
+      if (blankFrame(thumb)) { // camera lost: skip the tick (no black paint, no dimming), re-point OBS at it by name
+        const [list] = await obs([['GetInputList', {}]]);
+        const name = camera([list]), [{ inputSettings }] = await obs([['GetInputSettings', { inputName: name }]]);
+        const fix = cameraFix(inputSettings, cameras(execFileSync('system_profiler', ['SPCameraDataType'], { encoding: 'utf8' })));
+        if (fix) await obs([['SetInputSettings', { inputName: name, inputSettings: fix }]]), console.log(`camera ${fix.device_name} had a new ID, re-pointed OBS at ${fix.device}`);
+        else if (!blank) console.log('camera is blank and macOS has no new ID for it (GoPro off or unplugged?)');
+        blank = true;
+        await sleep(10_000);
+        continue;
+      }
+      blank = false;
       // You, as Background Removal sees you: the share of the frame its cutout fills (seated measured 0.24).
       const you = coverage(mask);
       if (stuckCutout(you)) { // switch its filters off and on, which revives them

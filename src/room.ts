@@ -99,3 +99,6 @@ export const stuckCutout = (coverage: number) => coverage > 0.95;
 
 // FLUX shares the GPU with OBS: while live it waits (lighting still follows along); measured 30 → 22-29 fps per paint.
 export const holdPaint = ({ painter, live }: { painter: string; live: boolean }) => painter === 'flux' && live;
+
+// OBS sends all-black (transparent) frames for a camera it lost; a dark room still has sensor noise above 2.
+export const blankFrame = (thumb: Uint8Array) => thumb.every((v) => v <= 2);

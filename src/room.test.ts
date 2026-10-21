@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deflateSync } from 'node:zlib';
-import { change, coverage, holdPaint, pgm, pngAlpha, roomPlan, stuckCutout, watchStep } from './room.ts';
+import { blankFrame, change, coverage, holdPaint, pgm, pngAlpha, roomPlan, stuckCutout, watchStep } from './room.ts';
 
 describe('roomPlan', () => {
   const data = '/repo/data';
@@ -147,5 +147,15 @@ describe('holdPaint', () => {
   });
   it('the CPU painter never waits', () => {
     expect(holdPaint({ painter: 'anime', live: true })).toBe(false);
+  });
+});
+
+describe('blankFrame', () => {
+  it('a camera OBS lost sends all-black (transparent) frames: never paint or relight from those', () => {
+    expect(blankFrame(new Uint8Array(4))).toBe(true);
+    expect(blankFrame(Uint8Array.from([0, 1, 2, 0]))).toBe(true);
+  });
+  it('a dark room still has sensor noise, so it is not blank', () => {
+    expect(blankFrame(Uint8Array.from([0, 3, 9, 1]))).toBe(false);
   });
 });
