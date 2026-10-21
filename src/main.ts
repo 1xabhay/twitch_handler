@@ -22,6 +22,7 @@ import { raidPicks } from './raid.ts';
 import { handleView, type View } from './scene/view.ts';
 import { handleTheme, parseCalendar, themeOn, THEMES, type Override } from './scene/theme.ts';
 import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
+import { onceADay } from './once.ts';
 import SunCalc from 'suncalc';
 
 const { TWITCH_CLIENT_ID: clientId, TWITCH_CLIENT_SECRET: clientSecret, TWITCH_CHANNEL, TWITCH_BOT } = process.env;
@@ -191,7 +192,8 @@ listener.onStreamOnline(channel, async (e) => {
   console.log(`live! stream ${streamId}`);
   await startNewDay(true).catch((err) => console.error('new day failed', err));
   // Optional: DISCORD_WEBHOOK (Server Settings → Integrations → Webhooks) gets a "we're live" post.
-  if (!process.env.DISCORD_WEBHOOK) return;
+  // One @here a day: a reconnect or restart mid-stream fires stream.online again (double ping 2026-10-20).
+  if (!process.env.DISCORD_WEBHOOK || !(await onceADay('data', 'discord-golive', new Date().toLocaleDateString('en-CA')))) return;
   const title = (await api.channels.getChannelInfoById(channel))?.title ?? '';
   await fetch(process.env.DISCORD_WEBHOOK, {
     method: 'POST',
