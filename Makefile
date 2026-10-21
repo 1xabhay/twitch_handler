@@ -1,7 +1,7 @@
 # One front door for the project. `make` lists everything.
-# The bot runs on the Mac (it needs OBS, `say` and the browser login); Docker is only for checks on a clean machine.
+# The bot runs on the Mac (it needs OBS, `say` and the browser login); Docker for clean-machine checks and the anime model.
 .DEFAULT_GOAL := help
-.PHONY: help install check test typecheck start preview login-bot login-channel login-spotify rewards-check launcher docker-check
+.PHONY: help install check test typecheck start preview login-bot login-channel login-spotify rewards-check launcher room docker-check
 
 help: ## list commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-15s %s\n", $$1, $$2}'
@@ -37,6 +37,9 @@ rewards-check: ## can the API manage Channel Points here?
 
 launcher: ## build ~/Applications/Isamy Stream.app (bot + OBS)
 	npm run launcher
+
+room: ## anime room backdrop: make room NAME=desk [PHOTO=pic.png] → data/room-desk.png
+	npm run room -- $(NAME) $(PHOTO)
 
 docker-check: ## make check in a clean Node 25 container (no secrets copied in)
 	docker build -t twitch-handler-check . && docker run --rm twitch-handler-check

@@ -41,5 +41,11 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 ## Overlay
 - Browser source `http://localhost:3001/town`, 1920×1080, top of Sources. Bot must be running.
 
+## Anime room behind you (optional)
+1. Photo of the empty room from the camera's spot. OBS open (it holds the camera): right-click the camera source → **Screenshot (Source)**, saved in ~/Movies. OBS closed: `make room NAME=desk` grabs the frame itself after a 5 s countdown.
+2. `make room NAME=desk PHOTO=~/Movies/<screenshot>.png` → `data/room-desk.png` (AnimeGANv2 in Docker, ~45 s; first run builds the image, ~1 GB).
+3. Cut yourself out: install the [Background Removal plugin](https://github.com/royshil/obs-backgroundremoval) (check it supports your OBS version), camera source → Filters → + → Background Removal. Light yourself from the front.
+4. Sources → + → Image → `data/room-desk.png`, drag it **below** the camera. Several rooms: Image Slide Show with Transition **Fade** instead.
+
 ## Test
 Start Recording → talk 30s, clap, `!task test` / `!done` in chat → Stop → File → Show Recordings.
