@@ -9,7 +9,7 @@ STEPS=${ROOM_FLUX_STEPS:-4}
 SEED=${ROOM_FLUX_SEED:-7}
 # 8-bit by default: full precision needs ~16 GB and swaps on a 16 GB Mac (140 s/step on an M2 Pro). 0 = full precision.
 QUANTIZE=${ROOM_FLUX_QUANTIZE:-8}
-PROMPT=${ROOM_FLUX_PROMPT:-"Repaint this photo as a hand-painted anime background in the style of a Studio Ghibli film: soft painterly brushwork, clean line art, gentle cel shading. Keep the exact same room: same layout, furniture, objects, camera angle and lighting. Do not add any people."}
+PROMPT=${ROOM_FLUX_PROMPT:-"Repaint this exact photo as a hand-painted anime background from a Studio Ghibli film: soft painterly brushwork, clean line art, gentle cel shading. Keep everything else identical: the same room, layout, furniture, objects, camera angle, and the same warm, dim evening lamp light and colours. Do not add anything."}
 
 dir=$(mktemp -d)
 trap 'rm -rf "$dir"' EXIT
