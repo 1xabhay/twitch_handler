@@ -19,7 +19,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>AppIcon</string>
 </dict></plist>
 PLIST
-cat > "$APP/Contents/MacOS/launch" <<LAUNCH
+cat > "$APP/Contents/MacOS/launch.new" <<LAUNCH
 #!/bin/sh
 cd "$PROJECT"
 pkill -f "src/main.ts" 2>/dev/null; sleep 1   # never run two bots
@@ -33,6 +33,7 @@ open -W -a OBS                                 # wait here until OBS quits
 kill \$BOT \$ROOMW 2>/dev/null
 echo "--- \$(date) bot stopped (OBS closed)" >> "$LOG"
 LAUNCH
-chmod +x "$APP/Contents/MacOS/launch"
+chmod +x "$APP/Contents/MacOS/launch.new"
+mv "$APP/Contents/MacOS/launch.new" "$APP/Contents/MacOS/launch"   # new file: a running launcher keeps its own copy
 cp /Applications/OBS.app/Contents/Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns" 2>/dev/null || true
 echo "built: $APP (log: $LOG)"

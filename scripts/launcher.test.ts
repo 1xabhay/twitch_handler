@@ -11,6 +11,11 @@ describe('npm run launcher', () => {
   const launch = join(home, 'Applications/Isamy Stream.app/Contents/MacOS/launch');
   const body = readFileSync(launch, 'utf8');
 
+  it('rebuilds into a new file, so a launcher running right now keeps reading its own copy', () => {
+    const before = statSync(launch).ino;
+    execFileSync('sh', ['scripts/make-launcher.sh'], { env: { ...process.env, HOME: home } });
+    expect(statSync(launch).ino).not.toBe(before);
+  });
   it('is an executable, valid shell script', () => {
     expect(statSync(launch).mode & 0o111).toBeTruthy();
     execFileSync('sh', ['-n', launch]);
