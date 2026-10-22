@@ -31,7 +31,7 @@ Then type `/mod <botname>` in your chat and add the overlays below to OBS as **B
 | Overlay URL | Size | Shows |
 |---|---|---|
 | `http://localhost:3001/town` | 1920×1080 | the city and sky, full screen with the old city behind by default (put it at the bottom of the scene); mods switch to a strip under the camera with `!view cam`. `?bg=` pins a view: `city`, `0` bottom, `1` opaque sky without the old city. `?land=alpine|coast|valley|mesa|archipelago|fjord` pins today's landscape. `?sky=0` buildings only, `?alpha=0.7` see-through |
-| `http://localhost:3001/timer` | 600×200 | focus timer, hidden when idle |
+| `http://localhost:3001/timer` | 600×200 | focus timer, hidden when idle (`?tall`: 380×480 panel, always shown) |
 | `http://localhost:3001/music` | 600×140 | now-playing card |
 | `http://localhost:3001/workout` | 600×160 | Channel Points workout queue |
 
@@ -41,7 +41,7 @@ Optional `.env` extras: `SUN_LAT`/`SUN_LON` (real sun, moon, stars and weather f
 
 - **Pixel city.** Each `!task` rolls a SimCity-style building under airy scaffolding; `!done` makes it solid and lights it up. Low buildings line the riverfront, towers stand behind, the river mirrors it all. When the street is full, tasks become storeys on the shortest tower. Fresh city on the first go-live of each day; unfinished tasks carry over.
 - **Focus landmarks.** The streamer's focus blocks build a landmark that rises with the countdown and opens at the break (longer blocks, grander landmarks). Stop or skip mid-block and it withers.
-- **Real sky.** Sun, moon (in its real phase) and ~40 bright stars where they actually are for your city. The focus timer rides the brightest thing up; buildings turn their shaded side away from it.
+- **Real sky.** Sun, moon (in its real phase) and ~40 bright stars where they actually are for your city. Buildings turn their shaded side away from the brightest one; the timer lives in its own card, not in the sky.
 - **Themes.** A calendar (or a mod) reskins the city for the day; the new look washes in as a tide. First theme: **Grand Line**, a One Piece homage. [Make your own](docs/THEMES.md).
 - **Street logic.** Lamps, boats, the food cart and the balloon switch through a small AND/OR/NOT circuit (lamps on at night *or* in rain), with a power line on the promenade fed by finished buildings.
 - **Builders.** Anyone who chatted in the last 30 minutes walks the street and hammers at their scaffolding. Follows send a delivery truck, raids arrive by bus.

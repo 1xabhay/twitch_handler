@@ -15,6 +15,11 @@
   .meta { font-size: 16px; margin-top: 6px; opacity: .8; }
   .bar { height: 14px; border: 3px solid var(--ink); margin-top: 10px; }
   .fill { height: 100%; width: 0; }
+  /* ?tall: a 380x480 panel that always shows, it covers the kitchen behind the streamer (Focus scene). */
+  .tall .card { display: flex; flex-direction: column; justify-content: space-between; width: auto; height: calc(100vh - 32px); padding: 24px; }
+  .tall .top { flex-direction: column; align-items: flex-start; gap: 28px; }
+  .tall .clock { font-size: 88px; }
+  .tall .meta { font-size: 18px; line-height: 1.5; white-space: pre-line; }
 </style>
 <div class="card" id="card">
   <div class="top"><span class="phase" id="phase"></span><span class="clock" id="clock"></span></div>
@@ -27,18 +32,24 @@
   const LABEL = { focus: 'FOCUS', break: 'BREAK', lunch: 'LUNCH', kickoff: 'KICKOFF', replan: 'RE-PLAN', recap: 'RECAP' };
   const $ = (id) => document.getElementById(id);
   let timer = null, boot = null;
+  const TALL = new URLSearchParams(location.search).has('tall');
+  document.body.classList.toggle('tall', TALL);
 
   const render = () => {
     const c = current(timer, Date.now());
-    $('card').classList.toggle('on', !!c);
-    if (!c) return;
+    $('card').classList.toggle('on', !!c || TALL);
+    if (!c) { // the tall panel stays up as a cover, idle
+      $('phase').textContent = 'READY'; $('phase').style.background = COLORS.kickoff;
+      $('clock').textContent = '--:--'; $('fill').style.width = '0'; $('meta').textContent = '!task builds my pixel city';
+      return;
+    }
     const s = Math.ceil(c.leftMs / 1000), color = COLORS[c.phase.kind];
     $('phase').textContent = LABEL[c.phase.kind] + (c.paused ? ' ⏸' : '');
     $('phase').style.background = color;
     $('clock').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
     $('fill').style.width = `${100 - (c.leftMs / (c.phase.min * 60_000)) * 100}%`;
     $('fill').style.background = color;
-    const block = c.phase.kind === 'focus' ? `block ${c.block.n}/${c.block.of} · ` : '';
+    const block = c.phase.kind === 'focus' ? `block ${c.block.n}/${c.block.of}${TALL ? '\n' : ' · '}` : '';
     $('meta').textContent = `${block}${c.next ? `next: ${LABEL[c.next.kind].toLowerCase()} ${c.next.min}m` : 'last one!'}`;
   };
 

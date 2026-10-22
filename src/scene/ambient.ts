@@ -52,7 +52,7 @@ type Pos = { az: number; alt: number };
 export const project = ({ az, alt }: Pos, { width, top, bottom }: { width: number; top: number; bottom: number }) =>
   ({ x: Math.round((az / 360) * width), y: Math.round(bottom - (alt / 90) * (bottom - top)) });
 
-// The focus timer rides the brightest thing up: the sun, else the moon, else the brightest star.
+// The brightest thing up (sun, else moon, else brightest star): the city shades its buildings away from it.
 export const carrier = ({ sun, moon, stars }: { sun: Pos; moon: Pos; stars: (Pos & { mag: number })[] }) => {
   if (sun.alt > 0) return { body: 'sun' as const, az: sun.az, alt: sun.alt };
   if (moon.alt > 0) return { body: 'moon' as const, az: moon.az, alt: moon.alt };

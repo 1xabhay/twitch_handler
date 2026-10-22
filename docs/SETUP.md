@@ -43,7 +43,7 @@ Tip: use a separate bot account. Logging in through a browser that's signed into
 
 ## Layout: real desk, pixel world
 One style per scene, nothing over you or the desk robot. Tools → WebSocket Server Settings → **Enable** first. `make obs-scenes` (OBS open) builds two scenes from your camera, mic and music, and leaves your other scenes alone:
-- **Focus**: the real camera full frame + `City band` (`/town?bg=0&sky=0`, buildings only, cropped to the bottom 280 px so it sits along the desk line) + `Timer` (`/timer` card at half size, top right). Uncropped, the band's sky haze and clock covered the camera.
+- **Focus**: the real camera full frame + `City band` (`/town?bg=0&sky=0`, buildings only, cropped to the bottom 280 px so it sits along the desk line) + `Timer` (`/timer?tall`, 380x480 panel, top left at y 40, always shown: it covers the microwave and cartons behind the right shoulder). Uncropped, the band's sky haze and clock covered the camera.
 - **Break**: `City full` (`/town?bg=city`) alone, no camera: the break belongs to the city.
 Switch between them yourself (scene buttons, or a hotkey in Settings → Hotkeys). Make the camera clean in the room, not in software: aim the GoPro (Linear lens) at the plainest wall, crop tight, one soft light in front of you. Background blur was tested on this desk (2026-10-21) and dropped: person blur (Background Removal, RVM) blurs the desk robot too and costs 15 ms a frame; its depth (focal) blur blurred the person instead of the kitchen and dropped OBS to 26 fps. No camera filter: 3.3 ms a frame.
 
