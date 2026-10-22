@@ -1,83 +1,99 @@
-// Fan favourites, told through their objects (no faces).
-import { circle, poly, type Piece } from './draw.ts';
+// Fan favourites as dark silhouettes in their signature pose, rim-lit, one glowing clue each (no faces).
+import { circle, ellipse, limb, poly, type Piece, type Stroke } from './draw.ts';
 
+const s = (d: string, c: Stroke['c']): Stroke => ({ d, c, sil: true });
 // a heart with its dip at (x, y), s wide
-const heart = (x: number, y: number, s: number) => {
-  const k = s / 100;
+const heart = (x: number, y: number, w: number) => {
+  const k = w / 100;
   return `M${x} ${y + 65 * k} C${x - 60 * k} ${y + 27 * k} ${x - 50 * k} ${y - 27 * k} ${x} ${y} C${x + 50 * k} ${y - 27 * k} ${x + 60 * k} ${y + 27 * k} ${x} ${y + 65 * k} Z`;
-};
-// a bar from (x0, y0) to (x1, y1), w0 wide at the start and w1 at the end
-const bar = (x0: number, y0: number, x1: number, y1: number, w0: number, w1: number) => {
-  const l = Math.hypot(x1 - x0, y1 - y0), ux = (y0 - y1) / l, uy = (x1 - x0) / l;
-  return poly([[x0 + ux * w0 / 2, y0 + uy * w0 / 2], [x1 + ux * w1 / 2, y1 + uy * w1 / 2], [x1 - ux * w1 / 2, y1 - uy * w1 / 2], [x0 - ux * w0 / 2, y0 - uy * w0 / 2]], true);
-};
-const studs = (x0: number, y0: number, x1: number, y1: number, ts: number[], side: number, r: number) => {
-  const l = Math.hypot(x1 - x0, y1 - y0), ux = (y0 - y1) / l, uy = (x1 - x0) / l;
-  return ts.flatMap((t, i) => {
-    const s = (i % 2 ? side : -side) * t;
-    return circle(x0 + (x1 - x0) * t + ux * s, y0 + (y1 - y0) * t + uy * s, r);
-  }).join(' ');
 };
 
 export const FAVOURITES: Piece[] = [
   { name: 'Hancock', answers: ['hancock', 'boahancock', 'boa', 'piratempress', 'snakeprincess'], art: [
-    { d: 'M250 194 C292 166 222 152 216 126 C208 96 252 92 236 64', c: 'violet', w: 10 },
-    { d: 'M250 194 C292 166 222 152 216 126 C208 96 252 92 236 64', c: 'pink', w: 1 },
-    { d: 'M242 60 C242 40 222 32 202 38 L176 46 L186 52 L178 58 L204 64 C222 68 242 74 242 60 Z', c: 'violet', w: 2.5, fill: true },
-    { d: circle(216, 47, 3) + ' M168 52 L152 52 L144 46 M152 52 L144 58', c: 'red', w: 1.5 },
-    { d: circle(240, 90, 11) + ' M233 99 L247 99 L247 106 L233 106 Z', c: 'white', w: 2, fill: true },
-    { d: circle(236, 89, 2.5) + ' ' + circle(244, 89, 2.5) + ' M238 99 L238 106 M242 99 L242 106', c: 'white', w: 1 },
-    { d: heart(88, 72, 110), c: 'pink', w: 3, fill: true },
-    { d: heart(36, 24, 26) + ' ' + heart(150, 20, 20) + ' ' + heart(150, 150, 16), c: 'pink', w: 1.5 },
+    { d: heart(150, 60, 190), c: 'pink', w: 1.5, fill: true }, // the Love-Love heart behind her
+    s(limb([[138, 112], [136, 150], [130, 188]], 18, 9) + ' ' + limb([[154, 112], [158, 150], [162, 188]], 18, 9), 'violet'),
+    s(ellipse(126, 191, 10, 3) + ' ' + ellipse(166, 191, 10, 3), 'violet'),
+    s(poly([[128, 100], [166, 100], [172, 130], [168, 176], [158, 176], [150, 132], [138, 176], [124, 176], [122, 130]], true), 'violet'), // long dress, slit
+    s(limb([[146, 114], [152, 90], [160, 66]], 26, 34), 'violet'), // leaning back
+    s(limb([[162, 64], [168, 52]], 10), 'violet'),
+    s(limb([[168, 50], [168, 44], [164, 34]], 21, 15), 'violet'), // head tipped back, chin up
+    s(limb([[172, 34], [188, 62], [194, 100], [196, 140]], 24, 14), 'violet'), // straight hair falling behind
+    s(limb([[146, 68], [122, 82], [100, 96]], 10, 7) + ' ' + circle(97, 98, 5) + ' ' + limb([[94, 100], [84, 108]], 3.5, 2.5), 'violet'), // pointing down at you
+    s(limb([[174, 68], [198, 90], [166, 108]], 10, 8), 'violet'), // hand on hip
+    s(limb(Array.from({ length: 13 }, (_, i) => { const a = Math.PI * (0.5 + i / 4), k = 1 - i / 24; return [244 + Math.cos(a) * 30 * k, 182 + Math.sin(a) * 8 * k] as [number, number]; }), 10, 9) + ' ' + limb([[272, 182], [276, 160], [256, 146], [262, 126]], 11, 8) + ' ' + ellipse(266, 120, 11, 7), 'violet'), // Salome coiled beside her
+    { d: heart(72, 112, 26), c: 'pink', w: 2, fill: true }, // Mero Mero heart off her fingertip
   ] },
   { name: 'Sabo', answers: ['sabo', 'revolutionary', 'flameemperor'], art: [
-    { d: 'M38 184 L262 136', c: 'white', w: 4 },
-    { d: circle(38, 184, 4) + ' ' + circle(262, 136, 4), c: 'white', w: 2 },
-    { d: 'M110 96 L116 24 Q150 18 184 24 L190 96 Z', c: 'blue', w: 2.5, fill: true },
-    { d: 'M66 102 Q150 84 234 102 Q150 120 66 102 Z', c: 'blue', w: 2.5, fill: true },
-    { d: 'M111 84 Q150 92 189 84', c: 'yellow', w: 3 },
-    { d: circle(132, 64, 12) + ' ' + circle(168, 64, 12) + ' M144 64 L156 64 M112 60 L120 62 M180 62 L188 60', c: 'cyan', w: 2 },
-    { d: 'M196 152 C186 136 204 126 198 110 C214 122 214 136 220 140 C222 124 234 116 232 98 C248 116 250 132 254 138 C262 132 270 126 272 112 C284 132 284 148 266 160 Z', c: 'orange', w: 2.5, fill: true },
-    { d: 'M216 150 C212 140 220 134 218 126 C228 134 230 142 236 146 C240 138 246 134 248 124 C256 136 256 146 250 154 Z', c: 'yellow', w: 1.5, fill: true },
+    { d: 'M60 196 C40 150 84 132 72 90 C100 108 102 126 112 118 C102 80 132 58 122 18 C162 48 172 88 162 108 C182 90 182 70 204 58 C214 100 236 132 224 196 Z', c: 'orange', w: 1.5, fill: true }, // Mera Mera flames
+    s(poly([[128, 8], [166, 6], [164, 34], [130, 36]], true) + ' ' + ellipse(147, 36, 28, 5), 'blue'), // top hat
+    s(ellipse(150, 48, 11, 12) + ' ' + ellipse(142, 52, 12, 11), 'blue'),
+    s(limb([[150, 58], [152, 66]], 10), 'blue'),
+    s(poly([[132, 66], [168, 66], [174, 112], [136, 116]], true), 'blue'),
+    s(poly([[134, 70], [150, 110], [140, 140], [90, 178], [56, 178], [100, 130], [118, 90]], true), 'blue'), // long coat flying back
+    s(poly([[160, 100], [184, 138], [178, 150], [158, 120]], true), 'blue'),
+    s(limb([[162, 114], [184, 148], [194, 186]], 16, 10) + ' ' + limb([[142, 114], [128, 152], [112, 186]], 16, 10), 'blue'),
+    s(ellipse(198, 190, 11, 4) + ' ' + ellipse(106, 190, 11, 4), 'blue'),
+    s(limb([[164, 70], [196, 78], [222, 74]], 11, 8) + ' ' + circle(226, 74, 7), 'blue'),
+    s(limb([[208, 64], [288, 112]], 6), 'blue'), // the pipe held out
+    s(limb([[136, 70], [124, 96], [122, 118]], 10, 8), 'blue'),
+    { d: circle(140, 27, 5.5) + ' ' + circle(155, 27, 5.5), c: 'cyan', w: 2.5, fill: true }, // goggles on the hat
+    { d: 'M129 28 L134.5 27 M145.5 27 L149.5 27 M160.5 27 L165 26', c: 'cyan', w: 1.5 },
   ] },
   { name: 'Yamato', answers: ['yamato', 'oniprincess'], art: [
-    { d: bar(116, 194, 152, 158, 10, 12) + ' ' + bar(152, 158, 266, 40, 18, 40), c: 'white', w: 2.5, fill: true },
-    { d: studs(152, 158, 266, 40, [0.3, 0.45, 0.6, 0.75, 0.9], 0, 3) + ' M144 166 L160 150', c: 'cyan', w: 2 },
-    { d: 'M40 74 Q22 36 46 8 Q46 40 62 70 Z M106 70 Q122 40 122 8 Q146 36 128 74 Z', c: 'red', w: 2.5, fill: true },
-    { d: 'M32 84 Q84 56 136 84', c: 'white', w: 2 },
-    { d: 'M34 140 L88 140 L88 166 L34 166 Z', c: 'yellow', w: 2.5, fill: true },
-    { d: circle(61, 153, 5) + ' M88 153 L100 153 ' + circle(108, 153, 7) + ' M116 149 L122 143 M117 157 L124 161', c: 'yellow', w: 1.5 },
+    { d: circle(160, 86, 76), c: 'yellow', w: 1.5, fill: true }, // Wano moon
+    s(limb([[142, 34], [120, 50], [100, 74], [80, 92]], 24, 3) + ' ' + limb([[144, 40], [124, 68], [106, 104]], 20, 3) + ' ' + limb([[146, 46], [134, 82], [126, 124]], 14, 3), 'cyan'), // long mane in the wind
+    s(ellipse(150, 44, 12, 13), 'cyan'),
+    s(limb([[150, 56], [150, 64]], 10), 'cyan'),
+    s(poly([[130, 62], [172, 62], [168, 112], [134, 112]], true), 'cyan'),
+    s(poly([[132, 106], [168, 106], [198, 188], [170, 190], [152, 140], [138, 190], [102, 188]], true), 'cyan'), // hakama, wide stance
+    s(ellipse(110, 190, 12, 4) + ' ' + ellipse(190, 190, 12, 4), 'cyan'),
+    s(limb([[138, 108], [172, 66], [258, 14]], 7, 22), 'cyan'), // kanabo over the shoulder
+    s([[214, 30], [232, 18], [246, 26], [226, 40]].map(([x, y]) => circle(x!, y!, 3.5)).join(' '), 'cyan'), // its studs
+    s(limb([[170, 66], [180, 92], [146, 102]], 11, 8) + ' ' + circle(142, 102, 7), 'cyan'),
+    s(limb([[132, 66], [120, 92], [118, 114]], 10, 8) + ' ' + circle(118, 117, 6), 'cyan'),
+    { d: 'M141 36 Q126 26 132 4 Q140 22 148 32 Z M159 32 Q166 22 172 4 Q178 26 163 36 Z', c: 'orange', w: 2, fill: true }, // oni horns
   ] },
   { name: 'Vivi', answers: ['vivi', 'nefertarivivi', 'nefertari', 'missweds', 'misswednesday', 'princessvivi'], art: [
-    { d: 'M20 186 Q90 166 160 182 Q230 196 290 178', c: 'orange', w: 1.5 },
-    { d: 'M64 110 C64 82 110 78 150 92 C170 98 176 108 172 124 C166 150 128 156 96 150 C74 146 64 132 64 110 Z', c: 'yellow', w: 2.5, fill: true },
-    { d: 'M66 104 L44 90 L54 108 L38 112 L64 120', c: 'yellow', w: 2 },
-    { d: 'M158 100 C176 82 162 60 176 44', c: 'yellow', w: 6 },
-    { d: circle(184, 40, 14), c: 'yellow', w: 2.5, fill: true },
-    { d: 'M196 34 Q224 30 228 40 Q214 50 196 48 Z', c: 'orange', w: 2, fill: true },
-    { d: circle(186, 36, 2.5) + ' M106 150 L102 180 L90 184 M102 180 L112 184 M132 150 L138 180 L126 184 M138 180 L148 184 M96 112 Q118 132 146 116', c: 'orange', w: 1.5 },
-    { d: circle(250, 186, 5) + ' M250 181 C246 160 236 140 226 110 M250 181 C252 150 252 130 254 96 M250 181 C258 160 270 140 282 112', c: 'white', w: 1 },
-    { d: 'M226 110 Q206 82 222 56 Q240 82 226 110 Z M254 96 Q238 64 256 38 Q272 66 254 96 Z M282 112 Q270 82 290 60 Q300 88 282 112 Z', c: 'cyan', w: 2, fill: true },
-    { d: circle(222, 84, 6) + ' ' + circle(255, 68, 6) + ' ' + circle(286, 86, 5), c: 'violet', w: 2, fill: true },
+    { d: circle(150, 100, 72), c: 'yellow', w: 1.5, fill: true }, // Alabasta sun
+    { d: 'M0 196 Q80 176 160 190 Q230 200 300 184', c: 'orange', w: 1.5 },
+    s(ellipse(140, 128, 42, 24), 'violet'), // Karoo
+    s(poly([[104, 120], [76, 106], [86, 124], [72, 132], [104, 138]], true), 'violet'),
+    s(limb([[168, 122], [186, 100], [184, 80], [196, 62]], 22, 14), 'violet'),
+    s(ellipse(200, 58, 13, 11) + ' ' + 'M208 52 Q234 50 238 58 Q228 66 208 64 Z' + ' ' + limb([[196, 48], [188, 36]], 4, 2), 'violet'),
+    s(limb([[150, 146], [170, 162], [184, 184]], 10, 5) + ' ' + poly([[178, 184], [200, 190], [180, 193]], true), 'violet'), // running
+    s(limb([[128, 146], [110, 160], [92, 172]], 10, 5) + ' ' + poly([[96, 168], [76, 176], [90, 180]], true), 'violet'),
+    s(limb([[124, 108], [150, 110]], 14) + ' ' + limb([[150, 110], [154, 134]], 10, 7), 'violet'), // Vivi in the saddle
+    s(limb([[128, 108], [136, 88], [148, 72]], 18, 16), 'violet'),
+    s(ellipse(154, 60, 10, 11), 'violet'),
+    s(limb([[146, 76], [168, 90], [182, 92]], 7, 5), 'violet'),
+    s(limb([[152, 50], [130, 42], [106, 46], [80, 38]], 12, 3), 'violet'), // high ponytail streaming back
+    { d: 'M152 48 C134 40 116 44 82 38 M150 53 C130 48 110 50 92 46', c: 'cyan', w: 2.5 },
+    { d: circle(152, 50, 3.5), c: 'cyan', w: 2, fill: true },
   ] },
   { name: 'Lucci', answers: ['lucci', 'roblucci', 'hattori'], art: [
-    { d: 'M64 150 C52 112 70 82 100 78 C102 52 140 46 150 70 C156 86 150 96 158 110 C170 130 150 156 120 160 L76 160 L40 170 Z', c: 'white', w: 2.5, fill: true },
-    { d: 'M150 68 L166 74 L150 78', c: 'orange', w: 2, fill: true },
-    { d: circle(136, 66, 3), c: 'white', w: 1.5 },
-    { d: 'M134 92 L142 92 L140 100 L136 100 Z M136 100 L130 126 L138 134 L144 124 L140 100', c: 'red', w: 2, fill: true },
-    { d: 'M78 120 Q100 112 120 128 M110 160 L108 182 M100 182 L116 182 M124 158 L126 182 M118 182 L134 182', c: 'white', w: 1.5 },
-    { d: 'M30 184 L180 184', c: 'violet', w: 3 },
-    { d: circle(238, 96, 9) + ' M228 90 L204 76 M230 104 L208 122 M246 88 L264 66 M248 104 L272 118 M238 86 L242 60 M236 106 L232 134', c: 'cyan', w: 1.5 },
-    { d: 'M27 40 A9 7 0 0 1 38 33 M42 35 A9 7 0 0 1 42 45 M38 47 A9 7 0 0 1 27 42 M187 26 A9 7 0 0 1 198 19 M202 21 A9 7 0 0 1 202 31 M198 33 A9 7 0 0 1 187 28 M271 30 A9 7 0 0 1 282 23 M286 25 A9 7 0 0 1 286 35 M282 37 A9 7 0 0 1 271 32 M261 166 A9 7 0 0 1 272 159 M276 161 A9 7 0 0 1 276 171 M272 173 A9 7 0 0 1 261 168 M195 170 A9 7 0 0 1 206 163 M210 165 A9 7 0 0 1 210 175 M206 177 A9 7 0 0 1 195 172 M27 120 A9 7 0 0 1 38 113 M42 115 A9 7 0 0 1 42 125 M38 127 A9 7 0 0 1 27 122', c: 'orange', w: 2 },
-    { d: 'M35 40 L37 40 M195 26 L197 26 M279 30 L281 30 M269 166 L271 166 M203 170 L205 170 M35 120 L37 120', c: 'yellow', w: 3 },
+    { d: circle(160, 100, 78), c: 'violet', w: 1.5, fill: true },
+    s(poly([[140, 6], [172, 8], [170, 34], [142, 34]], true) + ' ' + ellipse(156, 35, 24, 4), 'orange'), // top hat
+    s(ellipse(156, 48, 11, 12) + ' ' + limb([[162, 42], [172, 64], [176, 88]], 16, 8), 'orange'),
+    s(limb([[156, 58], [158, 66]], 10), 'orange'),
+    s(poly([[138, 66], [176, 66], [174, 118], [142, 118]], true) + ' ' + poly([[144, 110], [176, 110], [186, 140], [150, 136]], true), 'orange'),
+    s(limb([[148, 116], [118, 148], [108, 186]], 16, 10) + ' ' + limb([[168, 116], [190, 154], [210, 186]], 16, 10), 'orange'), // lunge
+    s(ellipse(102, 190, 12, 4) + ' ' + ellipse(216, 190, 11, 4), 'orange'),
+    s(limb([[142, 70], [110, 78], [78, 82]], 10, 7) + ' ' + circle(74, 82, 6) + ' ' + limb([[70, 82], [54, 82]], 3.5, 2.5), 'orange'), // Shigan, finger pistol
+    s(limb([[172, 70], [184, 94], [172, 108]], 10, 8), 'orange'),
+    { d: ellipse(194, 54, 13, 9) + ' ' + circle(205, 40, 6.5) + ' M210 38 L219 41 L210 43 M182 54 L166 62 L184 61', c: 'white', w: 2, fill: true }, // Hattori on his shoulder
+    { d: 'M203 47 L200 58 L206 58 Z', c: 'red', w: 1.5, fill: true }, // his tie
   ] },
   { name: 'Bon Clay', answers: ['bonclay', 'bonkure', 'bentham', 'mrtwo', 'mistertwo', 'mrtwobonclay'], art: [
-    { d: 'M40 196 Q50 140 110 132 L190 132 Q250 140 260 196 Z', c: 'white', w: 2.5, fill: true },
-    { d: 'M142 132 L134 196 M158 132 L166 196 M110 132 Q150 146 190 132', c: 'pink', w: 2 },
-    { d: 'M92 136 C64 112 112 86 88 60 C82 52 74 50 70 56 M208 136 C236 112 188 86 212 60 C218 52 226 50 230 56', c: 'white', w: 6 },
-    { d: circle(70, 52, 10) + ' ' + circle(230, 52, 10), c: 'white', w: 2.5, fill: true },
-    { d: 'M61 50 L42 56 L61 58 Z M239 50 L258 56 L239 58 Z', c: 'orange', w: 2, fill: true },
-    { d: 'M62 42 L62 30 L67 36 L70 28 L73 36 L78 30 L78 42 Z M222 42 L222 30 L227 36 L230 28 L233 36 L238 30 L238 42 Z', c: 'yellow', w: 1.5, fill: true },
-    { d: 'M136 40 C130 22 168 22 160 44 L128 76 L166 76', c: 'pink', w: 4 },
+    { d: circle(156, 100, 80), c: 'yellow', w: 1.5, fill: true }, // stage spotlight
+    s(limb([[150, 120], [148, 156], [146, 184]], 22, 10) + ' ' + limb([[146, 182], [146, 195]], 7, 2), 'pink'), // en pointe
+    s(limb([[156, 116], [204, 104], [252, 90]], 20, 7) + ' ' + limb([[252, 90], [268, 86]], 6, 2), 'pink'), // arabesque leg
+    s(limb([[150, 120], [136, 96], [118, 76]], 30, 34), 'pink'), // big frame
+    s(poly([[146, 98], [182, 108], [210, 146], [166, 130]], true), 'pink'), // coat tails
+    s(limb([[114, 72], [106, 62]], 11) + ' ' + ellipse(102, 54, 11, 12), 'pink'),
+    s(limb([[110, 76], [84, 54], [60, 30]], 11, 7) + ' ' + circle(57, 27, 5), 'pink'),
+    s(limb([[132, 86], [168, 92], [204, 84]], 11, 7) + ' ' + circle(207, 83, 5), 'pink'),
+    { d: 'M128 76 C144 62 124 46 128 34 C130 24 120 22 116 28 M142 82 C156 66 150 52 160 40 C166 32 174 32 176 38', c: 'white', w: 5 }, // swan necks on his coat
+    { d: ellipse(117, 29, 7, 4.5) + ' ' + ellipse(175, 39, 7, 4.5), c: 'white', w: 2, fill: true },
+    { d: 'M111 28 L101 33 L111 33 Z M181 38 L191 43 L181 43 Z', c: 'orange', w: 1.5, fill: true },
   ] },
 ];

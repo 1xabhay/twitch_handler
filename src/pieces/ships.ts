@@ -1,63 +1,98 @@
-// More Straw Hats and their ships, told through their objects (no faces).
-import { circle, poly, spiral, type Piece } from './draw.ts';
+// More Straw Hats and their ships, as rim-lit silhouettes with one glowing clue.
+import { circle, ellipse, limb, n, poly, spiral, type Piece } from './draw.ts';
 
-// Hana Hana: a forearm sprouting from (x, y) toward `deg` (0 = up), an open hand of four fingers at the end
+// a point `k` along direction `deg` (0 = up) from (x, y), shifted `side` across it
 const at = (x: number, y: number, deg: number, k: number, side = 0): [number, number] => {
   const a = (deg * Math.PI) / 180;
   return [x + Math.sin(a) * k + Math.cos(a) * side, y - Math.cos(a) * k + Math.sin(a) * side];
 };
-const arm = (x: number, y: number, deg: number, len: number) => poly([at(x, y, deg, 0, -6), at(x, y, deg, len, -5), at(x, y, deg, len + 8, -9), at(x, y, deg, len + 18, -8), at(x, y, deg, len + 18, 8), at(x, y, deg, len + 8, 9), at(x, y, deg, len, 5), at(x, y, deg, 0, 6)], true);
-const fingers = (x: number, y: number, deg: number, len: number) => [-6, -2, 2, 6].map((s) => poly([at(x, y, deg, len + 18, s), at(x, y, deg, len + 30 - Math.abs(s), s * 1.3)])).join(' ') + ' ' + poly([at(x, y, deg, len + 8, -9), at(x, y, deg, len + 16, -16)]);
-const star = (x: number, y: number, r: number) => poly(Array.from({ length: 10 }, (_, i) => at(x, y, i * 36, i % 2 ? r * 0.45 : r)), true);
-const ROBIN = [-66, -33, 0, 33, 66];
-// the Straw Hat jolly roger without the skull: hat over crossbones
-const hat = (x: number, y: number) => `M${x - 22} ${y} A22 6 0 1 0 ${x + 22} ${y} A22 6 0 1 0 ${x - 22} ${y} Z M${x - 11} ${y - 2} C${x - 13} ${y - 26} ${x + 13} ${y - 26} ${x + 11} ${y - 2} M${x - 16} ${y + 8} L${x + 16} ${y + 22} M${x + 16} ${y + 8} L${x - 16} ${y + 22}`;
+// an open hand at (x, y), fingers fanning toward `deg`
+const hand = (x: number, y: number, deg: number) => circle(x, y, 4.5) + ' ' +
+  [-34, -12, 10, 32].map((s) => limb([at(x, y, deg + s, 2), at(x, y, deg + s, 11 - Math.abs(s) / 12)], 2.8, 1.8)).join(' ') + ' ' +
+  limb([at(x, y, deg - 80, 2), at(x, y, deg - 70, 8)], 2.8, 2);
+// Hana Hana: an arm sprouting along a curve, ending in an open hand
+const sprout = (pts: [number, number][], deg: number) => limb(pts, 7, 4.5) + ' ' + hand(...pts[pts.length - 1]!, deg);
+const star = (x: number, y: number, r: number, turn = 0) => poly(Array.from({ length: 10 }, (_, i) => at(x, y, turn + i * 36, i % 2 ? r * 0.45 : r)), true);
+// the Sunny's figurehead: a lion's mane of 14 round petals around (228, 112)
+const mane = 'M' + at(228, 112, 0, 32).map(n).join(' ') + Array.from({ length: 14 }, (_, i) => ' Q' + at(228, 112, (i + 0.5) * (360 / 14), 54).map(n).join(' ') + ' ' + at(228, 112, (i + 1) * (360 / 14), 32).map(n).join(' ')).join('') + ' Z';
+const petal = (x: number, y: number, deg: number) => poly([at(x, y, deg, 0), at(x, y, deg + 40, 5), at(x, y, deg, 9), at(x, y, deg - 40, 5)], true);
+// the Straw Hat jolly roger: crossbones, skull, the hat on top
+const roger = (x: number, y: number) => [
+  { d: `M${x - 15} ${y - 6} L${x + 15} ${y + 14} M${x + 15} ${y - 6} L${x - 15} ${y + 14}`, c: 'white' as const, w: 2.5 },
+  { d: circle(x, y + 2, 8) + ' ' + poly([[x - 4, y + 8], [x - 4, y + 13], [x + 4, y + 13], [x + 4, y + 8]]), c: 'white' as const, w: 1.5, fill: true },
+  { d: ellipse(x, y - 5, 15, 3.5) + ` M${x - 8} ${y - 6} C${x - 8} ${y - 18} ${x + 8} ${y - 18} ${x + 8} ${y - 6}`, c: 'yellow' as const, w: 2, fill: true },
+  { d: `M${x - 8} ${y - 8} Q${x} ${y - 6} ${x + 8} ${y - 8}`, c: 'red' as const, w: 2 },
+];
 
 export const SHIPS: Piece[] = [
   { name: 'Robin', answers: ['robin', 'nicorobin', 'nico', 'demonchild', 'devilchild'], art: [
-    { d: ROBIN.map((d) => arm(150, 150, d, 80 - Math.abs(d) * 0.4)).join(' '), c: 'violet', w: 2, fill: true },
-    { d: ROBIN.map((d) => fingers(150, 150, d, 80 - Math.abs(d) * 0.4)).join(' '), c: 'violet', w: 1.5 },
-    { d: 'M60 150 Q105 136 150 150 Q195 136 240 150 L240 186 Q195 172 150 186 Q105 172 60 186 Z', c: 'cyan', w: 2.5, fill: true },
-    { d: 'M150 150 L150 186 M74 156 Q105 148 138 158 M74 166 Q105 158 138 168 M162 158 Q195 148 226 156 M162 168 Q195 158 226 166', c: 'cyan', w: 1 },
-    { d: 'M40 70 Q48 60 54 72 Q46 78 40 70 Z M246 46 Q254 36 260 48 Q252 54 246 46 Z M250 116 Q258 106 264 118 Q256 124 250 116 Z M48 124 Q56 114 62 126 Q54 132 48 124 Z', c: 'pink', w: 1.5, fill: true },
+    { d: circle(150, 84, 60), c: 'violet', w: 1.5, fill: true }, // a violet moon behind her
+    { d: ellipse(150, 28, 9, 11), c: 'cyan', sil: true },
+    { d: limb([[150, 22], [154, 46], [164, 66], [182, 80]], 24, 6), c: 'cyan', sil: true }, // long straight hair, caught by the wind
+    { d: limb([[150, 36], [150, 50]], 7), c: 'cyan', sil: true },
+    { d: poly([[135, 52], [165, 52], [162, 72], [158, 90], [170, 114], [130, 114], [142, 90], [138, 72]], true), c: 'cyan', sil: true },
+    { d: limb([[137, 56], [127, 74], [131, 88], [150, 78], [164, 62]], 9, 6) + ' ' + limb([[163, 56], [173, 74], [169, 88], [150, 80], [136, 62]], 9, 6), c: 'cyan', sil: true }, // arms crossed: the Hana Hana stance
+    { d: limb([[142, 110], [138, 150], [143, 190]], 17, 6) + ' ' + limb([[160, 110], [160, 150], [152, 190]], 17, 6), c: 'cyan', sil: true },
+    { d: poly([[136, 186], [148, 188], [150, 194], [134, 194]], true) + ' ' + poly([[146, 186], [158, 188], [160, 194], [144, 194]], true), c: 'cyan', sil: true }, // heels
+    // Cien Fleur: arms blooming out of her back like wings
+    { d: [
+      sprout([[144, 58], [116, 40], [96, 18]], -40), sprout([[143, 64], [108, 58], [80, 48]], -70), sprout([[143, 72], [110, 82], [84, 96]], -110), sprout([[144, 80], [122, 104], [108, 128]], -150),
+      sprout([[156, 58], [184, 40], [204, 18]], 40), sprout([[157, 64], [192, 58], [220, 48]], 70), sprout([[157, 72], [190, 82], [216, 96]], 110), sprout([[156, 80], [178, 104], [192, 128]], 150),
+    ].join(' '), c: 'violet', sil: true },
+    { d: [petal(70, 30, 20), petal(236, 32, -30), petal(64, 118, 70), petal(240, 116, -60), petal(196, 160, 30), petal(98, 158, -20), petal(226, 74, 100)].join(' '), c: 'pink', w: 1.5, fill: true }, // cherry petals: hana
   ] },
   { name: 'Franky', answers: ['franky', 'cutty', 'cuttyflam', 'ironmanfranky'], art: [
-    { d: star(110, 52, 30) + ' ' + star(190, 52, 30), c: 'cyan', w: 2.5, fill: true },
-    { d: 'M135 46 Q150 38 165 46 M84 46 L60 40 M216 46 L240 40', c: 'cyan', w: 2 },
-    { d: 'M60 186 Q56 166 64 152 Q56 138 62 124 Q70 114 70 98 L84 98 Q84 114 92 124 Q98 138 90 152 Q98 166 94 186 Z', c: 'red', w: 2, fill: true },
-    { d: 'M68 92 L86 92 M60 140 Q77 146 94 136', c: 'white', w: 1.5 },
-    { d: 'M122 174 L122 144 C160 142 196 116 228 114 L228 186 C196 186 160 178 122 174 Z', c: 'blue', w: 3, fill: true },
-    { d: 'M228 116 L270 116 Q286 116 286 130 L286 172 Q286 186 270 186 L228 186 Z', c: 'cyan', w: 2.5, fill: true },
-    { d: 'M286 144 L268 144 M286 158 L268 158 M286 172 L268 172 M234 138 Q254 132 268 142', c: 'cyan', w: 1.5 },
-    { d: star(186, 156, 18), c: 'yellow', w: 2, fill: true },
+    { d: circle(150, 96, 74), c: 'orange', w: 1.5, fill: true },
+    { d: ellipse(150, 96, 11, 12) + ' ' + limb([[150, 100], [150, 112]], 14), c: 'pink', sil: true },
+    { d: 'M139 90 C130 72 140 58 162 56 C178 55 182 66 172 69 C165 71 162 80 162 90 Z', c: 'blue', sil: true }, // the pompadour
+    { d: 'M98 110 Q150 98 202 110 Q198 132 176 150 L124 150 Q102 132 98 110 Z', c: 'pink', sil: true }, // barrel chest
+    { d: poly([[104, 110], [80, 162], [120, 148]], true) + ' ' + poly([[196, 110], [220, 162], [180, 148]], true), c: 'pink', sil: true }, // open shirt flapping
+    { d: poly([[132, 146], [168, 146], [172, 160], [150, 166], [128, 160]], true), c: 'pink', sil: true }, // speedo
+    { d: limb([[138, 158], [114, 172], [104, 189]], 16, 10) + ' ' + limb([[162, 158], [188, 172], [198, 189]], 16, 10), c: 'pink', sil: true }, // wide bent legs
+    { d: ellipse(100, 191, 13, 4) + ' ' + ellipse(202, 191, 13, 4), c: 'pink', sil: true },
+    { d: limb([[108, 112], [86, 98], [88, 76]], 12, 10) + ' ' + limb([[192, 112], [214, 98], [212, 76]], 12, 10), c: 'pink', sil: true }, // skinny upper arms
+    { d: limb([[88, 80], [108, 48], [136, 22]], 30, 24) + ' ' + limb([[212, 80], [192, 48], [164, 22]], 30, 24), c: 'blue', sil: true }, // giant forearms, pressed together: SUPER
+    { d: circle(138, 15, 11) + ' ' + circle(162, 15, 11), c: 'blue', sil: true },
+    { d: star(150, 40, 17), c: 'cyan', w: 2.5, fill: true }, // the two half stars meet
   ] },
   { name: 'Jinbe', answers: ['jinbe', 'jinbei', 'jimbei', 'jinbeioyabun', 'knightofthesea'], art: [
-    { d: 'M72 110 Q50 120 46 148 Q46 186 82 186 Q118 186 118 148 Q114 120 92 110 Q104 96 100 78 Q96 58 82 58 Q68 58 64 78 Q60 96 72 110 Z', c: 'orange', w: 2.5, fill: true },
-    { d: 'M76 58 L76 44 L88 44 L88 58', c: 'yellow', w: 2 },
-    { d: 'M70 110 Q82 116 94 110 M92 112 Q112 126 106 150 M92 112 Q100 134 94 150', c: 'red', w: 2 },
-    { d: 'M150 168 C150 90 230 40 272 80 C290 98 280 126 258 124 C240 122 238 100 254 98 C236 84 196 100 196 150 Z', c: 'cyan', w: 2.5, fill: true },
-    { d: 'M258 124 L266 132 M266 116 L278 122 M200 120 Q210 108 222 106', c: 'white', w: 1.5 },
-    { d: 'M130 180 A70 10 0 1 0 270 180 A70 10 0 1 0 130 180 Z M100 188 A100 8 0 0 0 300 188', c: 'blue', w: 1.5 },
+    { d: circle(140, 92, 72), c: 'red', w: 1.5, fill: true }, // the Sun Pirates' sun
+    { d: 'M0 166 Q30 158 60 166 Q90 174 120 166 M180 166 Q210 158 240 166 Q270 174 300 166', c: 'blue', w: 1.5 },
+    { d: ellipse(124, 42, 21, 18) + ' ' + ellipse(138, 50, 14, 10), c: 'yellow', sil: true }, // broad fish-man head, heavy jaw
+    { d: poly([[146, 56], [156, 40], [156, 56]], true), c: 'yellow', sil: true }, // tusk jutting from the jaw
+    { d: limb([[108, 30], [88, 34], [74, 50], [64, 72]], 13, 6), c: 'yellow', sil: true }, // hair tied back
+    { d: ellipse(122, 92, 46, 40), c: 'yellow', sil: true }, // massive kimono frame
+    { d: limb([[150, 72], [194, 76], [228, 78]], 24, 15) + ' ' + poly([[146, 70], [200, 74], [204, 104], [184, 114], [150, 98]], true), c: 'yellow', sil: true }, // thrusting arm, sleeve hanging
+    { d: ellipse(236, 76, 7, 12) + ' ' + limb([[236, 82], [244, 72]], 5, 3.5), c: 'yellow', sil: true }, // open palm
+    { d: limb([[94, 72], [76, 98], [96, 114]], 22, 16) + ' ' + poly([[96, 74], [70, 92], [72, 124], [92, 120]], true) + ' ' + circle(102, 114, 10), c: 'yellow', sil: true }, // fist pulled back at the hip
+    { d: limb([[132, 118], [176, 148], [188, 190]], 34, 24) + ' ' + limb([[110, 118], [82, 152], [58, 190]], 34, 22), c: 'yellow', sil: true }, // deep stance, wide trousers
+    { d: ellipse(194, 192, 14, 4) + ' ' + ellipse(52, 192, 14, 4), c: 'yellow', sil: true },
+    { d: 'M252 58 Q264 76 252 94 M264 46 Q282 76 264 106 M276 36 Q298 76 276 116', c: 'cyan', w: 2.5 }, // fish-man karate: the water ripples
   ] },
   { name: 'Going Merry', answers: ['goingmerry', 'merry', 'merrygo', 'goingmerrygo'], art: [
-    { d: 'M40 140 L190 140 Q218 140 232 118 L236 150 Q226 176 192 180 L70 180 Q46 178 40 140 Z', c: 'orange', w: 2.5, fill: true },
-    { d: 'M44 152 L234 152 M120 160 L120 170 M150 160 L150 170 M180 160 L180 170', c: 'orange', w: 1 },
-    { d: 'M130 140 L130 18 M96 38 L164 38 M96 110 L164 110', c: 'orange', w: 2 },
-    { d: 'M98 40 Q90 75 98 108 L162 108 Q170 75 162 40 Z', c: 'white', w: 2, fill: true },
-    { d: 'M230 120 Q220 90 234 70 Q252 54 272 64 Q284 72 290 92 Q294 106 282 110 Q266 112 256 108 Q248 122 230 120 Z', c: 'white', w: 2.5, fill: true },
-    { d: 'M284 96 L286 100 M268 104 Q276 106 282 104 M238 66 Q222 60 216 74 Q228 78 236 72', c: 'white', w: 1.5 },
-    { d: spiral(246, 88, 2, 15), c: 'yellow', w: 2.5 },
-    { d: 'M130 18 L150 22 L130 28', c: 'red', w: 2, fill: true },
-    { d: hat(130, 74), c: 'yellow', w: 1.5 },
+    { d: circle(232, 62, 44), c: 'yellow', w: 1.5, fill: true }, // full moon
+    { d: 'M0 178 Q25 172 50 178 Q75 184 100 178 Q125 172 150 178 Q175 184 200 178 Q225 172 250 178 Q275 184 300 178 M20 192 Q45 186 70 192 Q95 198 120 192 M170 192 Q195 186 220 192 Q245 198 270 192', c: 'blue', w: 1.5 },
+    { d: 'M36 110 L76 110 L80 128 L200 132 Q218 130 230 112 L236 124 Q226 164 196 174 L76 174 Q48 170 40 140 Z', c: 'pink', sil: true }, // round hull, raised stern
+    { d: limb([[140, 132], [140, 14]], 4), c: 'pink', sil: true }, // mast
+    { d: 'M98 50 L182 50 Q192 84 182 118 L98 118 Q88 84 98 50 Z', c: 'pink', sil: true }, // mainsail, full of wind
+    { d: 'M110 24 L170 24 Q176 34 170 44 L110 44 Q104 34 110 24 Z', c: 'pink', sil: true }, // topsail
+    { d: 'M140 12 L162 15 L140 20 Z', c: 'pink', sil: true }, // pennant
+    { d: limb([[62, 112], [62, 72]], 3) + ' M64 74 L92 104 L64 104 Z', c: 'pink', sil: true }, // little stern sail
+    { d: limb([[228, 130], [290, 118]], 4, 2), c: 'pink', sil: true }, // bowsprit
+    { d: limb([[222, 132], [238, 118], [248, 100]], 16, 12), c: 'pink', sil: true }, // the figurehead's neck rising from the bow
+    { d: ellipse(252, 88, 15, 13) + ' ' + ellipse(267, 96, 11, 7) + ' ' + circle(243, 85, 11) + ' ' + ellipse(232, 80, 8, 4), c: 'pink', sil: true }, // the sheep: head, snout, curled horn, ear
+    { d: spiral(243, 85, 2, 9), c: 'yellow', w: 2 }, // the curled horn glows
+    ...roger(140, 82),
   ] },
   { name: 'Thousand Sunny', answers: ['thousandsunny', 'sunny', 'sunnygo'], art: [
-    { d: 'M30 140 L180 140 Q200 150 204 130 L204 160 Q196 182 166 184 L60 184 Q36 180 30 140 Z', c: 'cyan', w: 2.5, fill: true },
-    { d: 'M34 154 L204 154 M60 166 L180 166', c: 'cyan', w: 1 },
-    { d: 'M90 140 L90 30 M60 50 L120 50 M60 112 L120 112', c: 'orange', w: 2 },
-    { d: 'M62 52 Q56 82 62 110 L118 110 Q124 82 118 52 Z', c: 'white', w: 2, fill: true },
-    { d: poly(Array.from({ length: 33 }, (_, i) => at(236, 116, i * 11.25, i % 2 ? 36 : 50)), true), c: 'orange', w: 2.5, fill: true },
-    { d: circle(236, 116, 30), c: 'yellow', w: 2.5, fill: true },
-    { d: 'M90 30 L112 34 L90 40', c: 'red', w: 2, fill: true },
-    { d: hat(90, 80), c: 'yellow', w: 1.5 },
+    { d: circle(228, 110, 52), c: 'orange', w: 1.5, fill: true }, // the sun behind the lion
+    { d: 'M0 150 L300 150 M40 162 L260 162 M80 174 L220 174', c: 'orange', w: 1 },
+    { d: 'M24 114 L60 114 L64 128 L206 128 L210 140 Q200 176 170 180 L58 180 Q30 172 24 114 Z', c: 'cyan', sil: true }, // the hull
+    { d: limb([[118, 130], [118, 14]], 5) + ' ' + ellipse(118, 30, 13, 11), c: 'cyan', sil: true }, // mainmast and the round crow's nest
+    { d: 'M76 48 L160 48 Q170 84 160 120 L76 120 Q66 84 76 48 Z', c: 'cyan', sil: true }, // mainsail
+    { d: limb([[44, 116], [44, 84]], 3) + ' ' + poly([[34, 84], [56, 84], [54, 100], [34, 100]], true), c: 'cyan', sil: true }, // stern flag
+    { d: mane, c: 'cyan', sil: true }, // the lion's mane: petals like a sunflower
+    { d: circle(228, 112, 19), c: 'yellow', w: 2.5 }, // the lion's face ring glows
+    ...roger(118, 82),
   ] },
 ];
