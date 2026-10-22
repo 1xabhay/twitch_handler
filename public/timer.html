@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>Focus Timer</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap">
 <style>
   :root { --ink: #1E1E2E; --paper: #FFF8E7; }
   html, body { margin: 0; background: transparent; font-family: 'Silkscreen', monospace; }
@@ -16,57 +16,105 @@
   .bar { height: 14px; border: 3px solid var(--ink); margin-top: 10px; }
   .fill { height: 100%; width: 0; }
   .art, .caption { display: none; }
-  /* ?tall: a 380x480 panel that always shows, it covers the kitchen behind the streamer (Focus scene).
-     Under the timer: One Piece fan art in rotation, chat guesses who (src/guess.ts). */
-  .tall .card { display: flex; flex-direction: column; justify-content: space-between; width: auto; height: calc(100vh - 32px); padding: 18px 20px; }
+  /* ?tall: a 380x480 panel that always shows, it covers the kitchen behind the streamer (Focus scene). Cyberpunk HUD,
+     under the timer One Piece fan art in neon, chat guesses who (src/guess.ts). ?piece=N pins a piece for previews. */
+  .tall { font-family: 'Share Tech Mono', monospace; }
+  .tall .card { display: flex; flex-direction: column; justify-content: space-between; width: auto; height: calc(100vh - 32px); padding: 16px 20px;
+                background: linear-gradient(160deg, #0C081C, #20062C); /* opaque: it is a cover */ color: #E8F6FF; image-rendering: auto;
+                border: 2px solid #00F0FF; box-shadow: 0 0 14px rgba(0,240,255,.5), inset 0 0 22px rgba(255,46,136,.16); }
   .tall .top { align-items: center; }
-  .tall .phase { font-size: 22px; }
-  .tall .clock { font-size: 52px; }
-  .tall .meta { font-size: 15px; line-height: 1.4; white-space: pre-line; }
-  .tall .art { display: block; align-self: center; border: 3px solid var(--ink); }
-  .tall .caption { display: block; font-size: 15px; text-align: center; }
+  .tall .phase { font: 700 15px 'Orbitron', sans-serif; letter-spacing: 3px; padding: 4px 8px; border: 1.5px solid currentColor;
+                 text-shadow: 0 0 8px currentColor; box-shadow: 0 0 8px currentColor, inset 0 0 8px currentColor; }
+  .tall .clock { font: 700 48px 'Orbitron', sans-serif; letter-spacing: 1px; color: #F2F7FF; text-shadow: 0 0 6px #00F0FF, 0 0 18px rgba(0,240,255,.7); }
+  .tall .bar { height: 6px; border: 1px solid rgba(0,240,255,.45); background: rgba(0,240,255,.07); margin-top: 0; }
+  .tall .fill { box-shadow: 0 0 10px currentColor; }
+  .tall .meta { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; line-height: 1.4; white-space: pre-line; color: rgba(200,230,255,.75); margin: 0; }
+  .tall .art { display: block; align-self: center; width: 300px; height: 200px; border: 1px solid rgba(255,46,136,.6); box-shadow: 0 0 12px rgba(255,46,136,.35); }
+  .tall .caption { display: block; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; text-align: center; color: #00F0FF; text-shadow: 0 0 8px rgba(0,240,255,.8); }
+  .tall .caption b { color: #FF2E88; text-shadow: 0 0 8px rgba(255,46,136,.9); font-weight: normal; }
 </style>
 <div class="card" id="card">
   <div class="top"><span class="phase" id="phase"></span><span class="clock" id="clock"></span></div>
   <div class="bar"><div class="fill" id="fill"></div></div>
   <div class="meta" id="meta"></div>
-  <canvas class="art" id="art" width="240" height="192"></canvas>
+  <canvas class="art" id="art" width="600" height="400"></canvas>
   <div class="caption" id="caption"></div>
 </div>
 <script type="module">
   import { current } from '/lib/focus.ts';
-  import { PALETTE, pieceAt, slotAt } from '/lib/guess.ts';
+  import { NEON, PIECES, pieceAt, slotAt } from '/lib/guess.ts';
+  const GLOW = { focus: NEON.cyan, break: NEON.green, lunch: NEON.orange, kickoff: NEON.yellow, replan: NEON.violet, recap: NEON.pink };
   const COLORS = { focus: '#4C9AFF', break: '#5FA55A', lunch: '#FF8A3D', kickoff: '#F2C230', replan: '#C77DFF', recap: '#FF6F91' };
   const LABEL = { focus: 'FOCUS', break: 'BREAK', lunch: 'LUNCH', kickoff: 'KICKOFF', replan: 'RE-PLAN', recap: 'RECAP' };
   const $ = (id) => document.getElementById(id);
-  let timer = null, boot = null, guess = null, drawn = null;
-  const TALL = new URLSearchParams(location.search).has('tall');
+  let timer = null, boot = null, guess = null;
+  const params = new URLSearchParams(location.search), TALL = params.has('tall'), PIN = params.get('piece');
+  const pieceNow = () => (PIN ? PIECES[Number(PIN) % PIECES.length] : pieceAt(Date.now()));
   document.body.classList.toggle('tall', TALL);
 
-  const art = () => { // 20x16 grid at 12 px per pixel, redrawn only when the piece changes
-    const piece = pieceAt(Date.now()), ctx = $('art').getContext('2d');
-    if (piece !== drawn) {
-      drawn = piece; ctx.clearRect(0, 0, 240, 192);
-      piece.art.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.') { ctx.fillStyle = PALETTE[ch]; ctx.fillRect(x * 12, y * 12, 12, 12); } }));
+  // --- neon art: strokes rendered once per piece (bloom, hot core, chromatic split), then composited every frame ---
+  const W = 300, H = 200, S = 2, off = () => Object.assign(document.createElement('canvas'), { width: W * S, height: H * S });
+  const backdrop = (() => { // night haze and a perspective grid running to the horizon
+    const c = off(), g = c.getContext('2d'); g.scale(S, S);
+    const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#05030C'); sky.addColorStop(0.65, '#130828'); sky.addColorStop(1, '#2B0A3C');
+    g.fillStyle = sky; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(255,46,136,0.16)'; g.lineWidth = 0.8;
+    for (let i = -12; i <= 12; i++) { g.beginPath(); g.moveTo(W / 2 + i * 6, 150); g.lineTo(W / 2 + i * 48, H); g.stroke(); }
+    for (let k = 0; k < 7; k++) { const y = 150 + 50 * (k / 7) ** 1.8; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    const v = g.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, 190); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.55)');
+    g.fillStyle = v; g.fillRect(0, 0, W, H);
+    return c;
+  })();
+  const scanlines = (() => { const c = off(), g = c.getContext('2d'); g.fillStyle = 'rgba(0,0,0,0.22)'; for (let y = 0; y < H * S; y += 3 * S) g.fillRect(0, y, W * S, S); return c; })();
+  const neon = (piece) => {
+    const c = off(), g = c.getContext('2d');
+    g.scale(S, S); g.lineCap = 'round'; g.lineJoin = 'round'; g.globalCompositeOperation = 'lighter';
+    const stroke = (path, color, width, blur, alpha, dx = 0) => {
+      g.save(); g.translate(dx, 0); g.globalAlpha = alpha; g.shadowBlur = blur * S; g.shadowColor = color;
+      g.strokeStyle = color; g.lineWidth = width; g.stroke(path); g.restore();
+    };
+    for (const s of piece.art) {
+      const path = new Path2D(s.d), color = NEON[s.c], w = s.w ?? 2;
+      if (s.fill) { g.globalAlpha = 0.14; g.fillStyle = color; g.fill(path); g.globalAlpha = 1; } // holographic body
+      stroke(path, NEON.pink, w * 0.6, 0, 0.35, -1.6); stroke(path, NEON.cyan, w * 0.6, 0, 0.35, 1.6); // chromatic split
+      stroke(path, color, w * 2.6, 18, 0.45); stroke(path, color, w, 6, 1); stroke(path, '#FFFFFF', Math.max(0.6, w * 0.35), 0, 0.85); // bloom, tube, hot core
     }
-    $('caption').textContent = guess?.slot === slotAt(Date.now()) ? `${piece.name}! got it: ${guess.by}` : 'who is this? !guess';
+    return c;
   };
+  let lit = null, litFor = null, since = 0;
+  const art = (now) => { // calm motion: a slow flicker, a scan sweep every 6 s, a 140 ms glitch every 11 s, a decode wipe on a new piece
+    const piece = pieceNow(), ctx = $('art').getContext('2d');
+    if (piece !== litFor) { lit = neon(piece); litFor = piece; since = PIN ? -1e9 : now; } // pinned previews skip the wipe
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.drawImage(backdrop, 0, 0);
+    const rh = Math.round(lit.height * Math.min(1, (now - since) / 1400));
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.9 + 0.06 * Math.sin(now / 530) + 0.04 * Math.sin(now / 170) - (now % 9000 < 90 ? 0.35 : 0);
+    if (now % 11000 < 140) for (let y = 0; y < rh; y += 24) { const dx = (((y * 37 + Math.floor(now / 40)) % 15) - 7) * S, h = Math.min(24, rh - y); ctx.drawImage(lit, 0, y, lit.width, h, dx, y, lit.width, h); }
+    else if (rh > 0) ctx.drawImage(lit, 0, 0, lit.width, rh, 0, 0, lit.width, rh);
+    if (rh < lit.height) { ctx.globalAlpha = 1; ctx.fillStyle = NEON.cyan; ctx.shadowBlur = 16; ctx.shadowColor = NEON.cyan; ctx.fillRect(0, rh - 2, lit.width, 3); ctx.shadowBlur = 0; }
+    const sy = (((now / 6000) % 1) * 1.4 - 0.2) * lit.height, band = ctx.createLinearGradient(0, sy - 40, 0, sy + 40);
+    band.addColorStop(0, 'rgba(0,240,255,0)'); band.addColorStop(0.5, 'rgba(0,240,255,0.10)'); band.addColorStop(1, 'rgba(0,240,255,0)');
+    ctx.globalAlpha = 1; ctx.fillStyle = band; ctx.fillRect(0, sy - 40, lit.width, 80);
+    ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(scanlines, 0, 0);
+    $('caption').innerHTML = guess?.slot === slotAt(Date.now()) && !PIN ? `match // <b>${piece.name}</b> · ${guess.by.replace(/[<&]/g, '')}` : 'id // <b>unknown</b> · !guess &lt;name&gt;';
+    requestAnimationFrame(art);
+  };
+  if (TALL) requestAnimationFrame(art);
 
   const render = () => {
-    if (TALL) art();
     const c = current(timer, Date.now());
     $('card').classList.toggle('on', !!c || TALL);
     if (!c) { // the tall panel stays up as a cover, idle
-      $('phase').textContent = 'READY'; $('phase').style.background = COLORS.kickoff;
+      $('phase').textContent = 'READY'; $('phase').style[TALL ? 'color' : 'background'] = (TALL ? GLOW : COLORS).kickoff;
       $('clock').textContent = '--:--'; $('fill').style.width = '0'; $('meta').textContent = '!task builds my pixel city';
       return;
     }
-    const s = Math.ceil(c.leftMs / 1000), color = COLORS[c.phase.kind];
+    const s = Math.ceil(c.leftMs / 1000), color = (TALL ? GLOW : COLORS)[c.phase.kind];
     $('phase').textContent = LABEL[c.phase.kind] + (c.paused ? ' ⏸' : '');
-    $('phase').style.background = color;
+    $('phase').style[TALL ? 'color' : 'background'] = color;
     $('clock').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
     $('fill').style.width = `${100 - (c.leftMs / (c.phase.min * 60_000)) * 100}%`;
-    $('fill').style.background = color;
+    $('fill').style.background = color; $('fill').style.color = color;
     const block = c.phase.kind === 'focus' ? `block ${c.block.n}/${c.block.of}${TALL ? '\n' : ' · '}` : '';
     $('meta').textContent = `${block}${c.next ? `next: ${LABEL[c.next.kind].toLowerCase()} ${c.next.min}m` : 'last one!'}`;
   };

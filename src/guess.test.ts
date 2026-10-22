@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { handleGuess, PALETTE, PIECES, pieceAt, ROTATE_MS, slotAt } from './guess.ts';
+import { handleGuess, NEON, PIECES, pieceAt, ROTATE_MS, slotAt } from './guess.ts';
 
 const sam = { userName: 'sam' };
 const at = (slot: number, min = 0) => slot * ROTATE_MS + min * 60_000;
 
 describe('pieces', () => {
-  it('every piece is a 20x16 grid in the palette, answers already normalised', () => {
+  it('every piece is neon strokes: SVG paths inside the 300x200 frame, neon colours, answers already normalised', () => {
     for (const p of PIECES) {
-      expect(p.art).toHaveLength(16);
-      for (const row of p.art) expect(row).toMatch(/^.{20}$/);
-      for (const ch of p.art.join('')) expect(ch === '.' || ch in PALETTE, `${p.name}: ${ch}`).toBe(true);
+      expect(p.art.length).toBeGreaterThan(2);
+      for (const s of p.art) {
+        expect(s.d, p.name).toMatch(/^M[\d.\s,MLQCAZ-]+$/);
+        expect(s.c in NEON, `${p.name}: ${s.c}`).toBe(true);
+        const nums = s.d.match(/-?[\d.]+/g)!.map(Number);
+        expect(Math.min(...nums), p.name).toBeGreaterThanOrEqual(0);
+        expect(Math.max(...nums), p.name).toBeLessThanOrEqual(300);
+      }
       for (const a of p.answers) expect(a).toMatch(/^[a-z]+$/);
     }
   });
