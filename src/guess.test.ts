@@ -8,6 +8,7 @@ describe('pieces', () => {
   it('every piece is neon strokes: SVG paths inside the 300x200 frame, neon colours, answers already normalised', () => {
     for (const p of PIECES) {
       expect(p.art.length).toBeGreaterThan(2);
+      expect(p.art.some((s) => s.sil), `${p.name}: the character as a silhouette`).toBe(true);
       for (const s of p.art) {
         expect(s.d, p.name).toMatch(/^M[\d.\s,MLQCAZ-]+$/);
         expect(s.c in NEON, `${p.name}: ${s.c}`).toBe(true);

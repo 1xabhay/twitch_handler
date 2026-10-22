@@ -73,12 +73,22 @@
       g.save(); g.translate(dx, 0); g.globalAlpha = alpha; g.shadowBlur = blur * S; g.shadowColor = color;
       g.strokeStyle = color; g.lineWidth = width; g.stroke(path); g.restore();
     };
-    for (const s of piece.art) {
+    const tube = (s) => {
       const path = new Path2D(s.d), color = NEON[s.c], w = s.w ?? 2;
       if (s.fill) { g.globalAlpha = 0.14; g.fillStyle = color; g.fill(path); g.globalAlpha = 1; } // holographic body
       stroke(path, NEON.pink, w * 0.6, 0, 0.35, -1.6); stroke(path, NEON.cyan, w * 0.6, 0, 0.35, 1.6); // chromatic split
       stroke(path, color, w * 2.6, 18, 0.45); stroke(path, color, w, 6, 1); stroke(path, '#FFFFFF', Math.max(0.6, w * 0.35), 0, 0.85); // bloom, tube, hot core
-    }
+    };
+    // strokes before the first silhouette part sit behind the body (a backlight), the rest glow on top of it (the clue)
+    const first = piece.art.findIndex((s) => s.sil), cut = first < 0 ? piece.art.length : first;
+    piece.art.slice(0, cut).filter((s) => !s.sil).forEach(tube);
+    // silhouette: rims of all body parts first, then every part filled dark on top, so only the outer edge glows
+    const body = piece.art.filter((s) => s.sil).map((s) => ({ path: new Path2D(s.d), color: NEON[s.c], w: s.w ?? 3 }));
+    for (const s of body) { stroke(s.path, s.color, s.w * 3, 22, 0.5); stroke(s.path, s.color, s.w, 8, 1); }
+    g.globalCompositeOperation = 'source-over'; g.fillStyle = '#06030D';
+    for (const s of body) g.fill(s.path);
+    g.globalCompositeOperation = 'lighter';
+    piece.art.slice(cut).filter((s) => !s.sil).forEach(tube);
     return c;
   };
   let lit = null, litFor = null, since = 0;
@@ -87,7 +97,6 @@
     if (piece !== litFor) { lit = neon(piece); litFor = piece; since = PIN ? -1e9 : now; } // pinned previews skip the wipe
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.drawImage(backdrop, 0, 0);
     const rh = Math.round(lit.height * Math.min(1, (now - since) / 1400));
-    ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.9 + 0.06 * Math.sin(now / 530) + 0.04 * Math.sin(now / 170) - (now % 9000 < 90 ? 0.35 : 0);
     if (now % 11000 < 140) for (let y = 0; y < rh; y += 24) { const dx = (((y * 37 + Math.floor(now / 40)) % 15) - 7) * S, h = Math.min(24, rh - y); ctx.drawImage(lit, 0, y, lit.width, h, dx, y, lit.width, h); }
     else if (rh > 0) ctx.drawImage(lit, 0, 0, lit.width, rh, 0, 0, lit.width, rh);

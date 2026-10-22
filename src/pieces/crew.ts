@@ -1,15 +1,22 @@
 // The Straw Hat crew, told through their objects.
-import { afro, circle, katana, spiral, type Piece } from './draw.ts';
+import { afro, circle, ellipse, katana, limb, poly, spiral, type Piece } from './draw.ts';
 
 export const CREW: Piece[] = [
   { name: 'Luffy', answers: ['luffy', 'monkeydluffy', 'strawhat', 'strawhatluffy'], art: [
-    { d: 'M55 92 A95 22 0 1 0 245 92 A95 22 0 1 0 55 92 Z', c: 'yellow', w: 2.5, fill: true },
-    { d: 'M96 90 C94 38 206 38 204 90', c: 'yellow', w: 2.5, fill: true },
-    { d: 'M97 74 C125 84 175 84 203 74 M96 86 C125 96 175 96 204 86', c: 'red', w: 3 },
-    { d: 'M75 100 L95 104 M205 104 L225 100 M120 50 L130 46 M170 46 L180 50', c: 'yellow', w: 1 },
-    { d: 'M110 160 C108 136 192 136 190 160 C192 184 108 184 110 160 Z', c: 'orange', w: 2.5, fill: true },
-    { d: 'M125 150 C140 145 160 145 175 150', c: 'orange', w: 1 },
-    { d: 'M110 160 L84 160 M190 160 L216 160 ' + circle(78, 154, 6) + ' ' + circle(78, 166, 6) + ' ' + circle(222, 154, 6) + ' ' + circle(222, 166, 6), c: 'white', w: 2 },
+    { d: circle(150, 100, 74), c: 'orange', w: 1.5, fill: true }, // the sun behind him
+    { d: ellipse(150, 44, 12, 14), c: 'pink', sil: true },
+    { d: limb([[150, 54], [150, 66]], 11), c: 'pink', sil: true },
+    { d: poly([[127, 66], [173, 66], [181, 112], [164, 124], [136, 124], [119, 112]], true), c: 'pink', sil: true }, // open vest, flaring
+    { d: poly([[137, 120], [163, 120], [178, 156], [157, 161], [150, 136], [143, 161], [122, 156]], true), c: 'pink', sil: true }, // shorts
+    { d: ellipse(132, 157, 11, 5) + ' ' + ellipse(168, 157, 11, 5), c: 'pink', sil: true }, // rolled cuffs
+    { d: limb([[132, 160], [125, 191]], 9, 7) + ' ' + limb([[168, 160], [177, 191]], 9, 7), c: 'pink', sil: true },
+    { d: ellipse(123, 193, 10, 3) + ' ' + ellipse(180, 193, 10, 3), c: 'pink', sil: true }, // sandals
+    { d: limb([[171, 70], [190, 56], [178, 32]], 10, 8) + ' ' + ellipse(175, 31, 6, 5), c: 'pink', sil: true }, // hand on the hat
+    { d: limb([[129, 70], [115, 96], [111, 116]], 10, 8) + ' ' + circle(110, 121, 7.5), c: 'pink', sil: true }, // fist
+    { d: ellipse(150, 33, 30, 6), c: 'yellow', w: 2, fill: true }, // the straw hat, the only thing lit
+    { d: 'M134 32 C133 13 167 13 166 32', c: 'yellow', w: 2, fill: true },
+    { d: 'M135 28 C145 31.5 155 31.5 165 28', c: 'red', w: 3 },
+    { d: 'M144 84 L156 96 M156 84 L144 96', c: 'red', w: 1 }, // the X scar
   ] },
   { name: 'Zoro', answers: ['zoro', 'roronoazoro', 'roronoa'], art: [
     ...katana(150, 192, 0, 'white'), ...katana(140, 190, -42, 'red'), ...katana(160, 190, 42, 'violet'),
