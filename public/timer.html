@@ -15,27 +15,45 @@
   .meta { font-size: 16px; margin-top: 6px; opacity: .8; }
   .bar { height: 14px; border: 3px solid var(--ink); margin-top: 10px; }
   .fill { height: 100%; width: 0; }
-  /* ?tall: a 380x480 panel that always shows, it covers the kitchen behind the streamer (Focus scene). */
-  .tall .card { display: flex; flex-direction: column; justify-content: space-between; width: auto; height: calc(100vh - 32px); padding: 24px; }
-  .tall .top { flex-direction: column; align-items: flex-start; gap: 28px; }
-  .tall .clock { font-size: 88px; }
-  .tall .meta { font-size: 18px; line-height: 1.5; white-space: pre-line; }
+  .art, .caption { display: none; }
+  /* ?tall: a 380x480 panel that always shows, it covers the kitchen behind the streamer (Focus scene).
+     Under the timer: One Piece fan art in rotation, chat guesses who (src/guess.ts). */
+  .tall .card { display: flex; flex-direction: column; justify-content: space-between; width: auto; height: calc(100vh - 32px); padding: 18px 20px; }
+  .tall .top { align-items: center; }
+  .tall .phase { font-size: 22px; }
+  .tall .clock { font-size: 52px; }
+  .tall .meta { font-size: 15px; line-height: 1.4; white-space: pre-line; }
+  .tall .art { display: block; align-self: center; border: 3px solid var(--ink); }
+  .tall .caption { display: block; font-size: 15px; text-align: center; }
 </style>
 <div class="card" id="card">
   <div class="top"><span class="phase" id="phase"></span><span class="clock" id="clock"></span></div>
   <div class="bar"><div class="fill" id="fill"></div></div>
   <div class="meta" id="meta"></div>
+  <canvas class="art" id="art" width="240" height="192"></canvas>
+  <div class="caption" id="caption"></div>
 </div>
 <script type="module">
   import { current } from '/lib/focus.ts';
+  import { PALETTE, pieceAt, slotAt } from '/lib/guess.ts';
   const COLORS = { focus: '#4C9AFF', break: '#5FA55A', lunch: '#FF8A3D', kickoff: '#F2C230', replan: '#C77DFF', recap: '#FF6F91' };
   const LABEL = { focus: 'FOCUS', break: 'BREAK', lunch: 'LUNCH', kickoff: 'KICKOFF', replan: 'RE-PLAN', recap: 'RECAP' };
   const $ = (id) => document.getElementById(id);
-  let timer = null, boot = null;
+  let timer = null, boot = null, guess = null, drawn = null;
   const TALL = new URLSearchParams(location.search).has('tall');
   document.body.classList.toggle('tall', TALL);
 
+  const art = () => { // 20x16 grid at 12 px per pixel, redrawn only when the piece changes
+    const piece = pieceAt(Date.now()), ctx = $('art').getContext('2d');
+    if (piece !== drawn) {
+      drawn = piece; ctx.clearRect(0, 0, 240, 192);
+      piece.art.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.') { ctx.fillStyle = PALETTE[ch]; ctx.fillRect(x * 12, y * 12, 12, 12); } }));
+    }
+    $('caption').textContent = guess?.slot === slotAt(Date.now()) ? `${piece.name}! got it: ${guess.by}` : 'who is this? !guess';
+  };
+
   const render = () => {
+    if (TALL) art();
     const c = current(timer, Date.now());
     $('card').classList.toggle('on', !!c || TALL);
     if (!c) { // the tall panel stays up as a cover, idle
@@ -59,6 +77,7 @@
     if (msg.boot && boot && msg.boot !== boot) return location.reload(); // bot restarted, maybe with new code
     boot = msg.boot ?? boot;
     timer = msg.timer ?? null;
+    guess = msg.guess ?? null;
     render();
   };
   setInterval(render, 250);

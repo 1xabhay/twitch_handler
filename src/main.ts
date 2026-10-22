@@ -23,6 +23,7 @@ import { handleView, type View } from './scene/view.ts';
 import { handleTheme, parseCalendar, themeOn, THEMES, type Override } from './scene/theme.ts';
 import { LADDER, handleWorkout, nextWorkout, redeem, type Gym } from './workout.ts';
 import { onceADay } from './once.ts';
+import { handleGuess, type Solved } from './guess.ts';
 import { cameraFix, cameraInput, cameras } from './obs.ts';
 import { obs } from './obsws.ts';
 import SunCalc from 'suncalc';
@@ -85,6 +86,7 @@ const theme = () => themeOn(calendar, themeOverride, new Date());
 let view = await readJson<View>(VIEW_FILE, 'city'); // !view city|cam (src/scene/view.ts)
 const names = () => { const id = theme(); return id ? THEMES[id]!.names : {}; };
 let crowd: Crowd = {}; // in memory only: presence doesn't need to survive restarts
+let guess: Solved = null; // !guess on the Focus panel art, in memory: a piece only lasts 10 minutes
 const BOOT = Date.now(); // overlays reload themselves when boot changes (restart, or an edit to their code), so OBS never runs a stale page
 const boot = () => `${BOOT}.${codeRev(['src', 'public'])}`;
 // SUN_LAT/SUN_LON in .env (a city is precise enough) → sky follows the real sun; otherwise the overlay uses clock hours.
@@ -105,7 +107,7 @@ const checkWeather = async () => {
   } catch (e) { console.error('weather check failed', e); }
 };
 checkWeather(); setInterval(checkWeather, 15 * 60_000);
-const state = () => ({ type: 'state', boot: boot(), theme: theme(), view, phase: sunPhase(), sun: sunTimes(), sky: realSky(), weather, timer, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
+const state = () => ({ type: 'state', boot: boot(), theme: theme(), view, phase: sunPhase(), sun: sunTimes(), sky: realSky(), weather, timer, guess, song, gym: { pending: gym.pending.map(({ name, by }) => ({ name, by })), enabled: gym.enabled }, town, builders: activeBuilders(crowd, Date.now()) });
 const push = startOverlay(OVERLAY_PORT, state);
 let lastTheme = theme(); // the calendar flips at midnight: say so once (a restart on a theme day stays quiet)
 setInterval(() => { // let quiet builders clock out
@@ -303,6 +305,12 @@ const handleChat = async (e: EventSubChannelChatMessageEvent) => {
     if (w.gym.enabled !== gym.enabled) void pauseRewards(!w.gym.enabled);
     saveGym(w.gym);
     await say(w.reply);
+  }
+
+  const g = handleGuess(guess, chatter, e.messageText, Date.now());
+  if (g) {
+    if (g.solved !== guess) { guess = g.solved; push(state()); }
+    await say(g.reply);
   }
 
   const link = handleLink(e.messageText, { discord: process.env.LINK_DISCORD, insta: process.env.LINK_INSTA, playlist: process.env.LINK_PLAYLIST });

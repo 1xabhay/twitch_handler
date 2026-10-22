@@ -31,7 +31,7 @@ Then type `/mod <botname>` in your chat and add the overlays below to OBS as **B
 | Overlay URL | Size | Shows |
 |---|---|---|
 | `http://localhost:3001/town` | 1920×1080 | the city and sky, full screen with the old city behind by default (put it at the bottom of the scene); mods switch to a strip under the camera with `!view cam`. `?bg=` pins a view: `city`, `0` bottom, `1` opaque sky without the old city. `?land=alpine|coast|valley|mesa|archipelago|fjord` pins today's landscape. `?sky=0` buildings only, `?alpha=0.7` see-through |
-| `http://localhost:3001/timer` | 600×200 | focus timer, hidden when idle (`?tall`: 380×480 panel, always shown) |
+| `http://localhost:3001/timer` | 600×200 | focus timer, hidden when idle (`?tall`: 380×480 panel, always shown, with the `!guess` art under the timer) |
 | `http://localhost:3001/music` | 600×140 | now-playing card |
 | `http://localhost:3001/workout` | 600×160 | Channel Points workout queue |
 
@@ -66,6 +66,7 @@ Optional `.env` extras: `SUN_LAT`/`SUN_LON` (real sun, moon, stars and weather f
 | `!sr <song>`, `!song` | followers / anyone | request a song (1 per 10 min), what's playing |
 | `!skip` | mods | skip the song |
 | `!workout` / `!workout off\|on` | anyone / mods | the workout queue / pause the rewards (refunds while off) |
+| `!guess <name>` | anyone | who is on the Focus panel? One Piece fan art told through objects (a hat, three swords...), new piece every 10 min, first right guess wins |
 | `!raid` | mods | three small live streams in your category |
 | `!tts on\|off` | mods | read chat aloud on the streamer's computer |
 | `!socials`, `!discord`, `!insta`, `!playlist` | anyone | links |
