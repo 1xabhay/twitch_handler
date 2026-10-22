@@ -18,6 +18,11 @@ describe('pieces', () => {
       for (const a of p.answers) expect(a).toMatch(/^[a-z]+$/);
     }
   });
+  it('names and answers are unique across pieces, so a guess means one character', () => {
+    const answers = PIECES.flatMap((p) => p.answers);
+    expect(new Set(answers).size).toBe(answers.length);
+    expect(new Set(PIECES.map((p) => p.name.toLowerCase())).size).toBe(PIECES.length);
+  });
   it('a new piece every ROTATE_MS, all of them before one repeats', () => {
     expect(pieceAt(at(3, 0))).toBe(pieceAt(at(3, 9)));
     expect(new Set(PIECES.map((_, i) => pieceAt(at(i))))).toHaveLength(PIECES.length);

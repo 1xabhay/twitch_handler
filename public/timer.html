@@ -17,7 +17,7 @@
   .fill { height: 100%; width: 0; }
   .art, .caption { display: none; }
   /* ?tall: a 380x480 panel that always shows, it covers the kitchen behind the streamer (Focus scene). Cyberpunk HUD,
-     under the timer One Piece fan art in neon, chat guesses who (src/guess.ts). ?piece=N pins a piece for previews. */
+     under the timer One Piece fan art in neon, chat guesses who (src/guess.ts). ?piece=N or ?piece=<name> pins a piece for previews. */
   .tall { font-family: 'Share Tech Mono', monospace; }
   .tall .card { display: flex; flex-direction: column; justify-content: space-between; width: auto; height: calc(100vh - 32px); padding: 16px 20px;
                 background: linear-gradient(160deg, #0C081C, #20062C); /* opaque: it is a cover */ color: #E8F6FF; image-rendering: auto;
@@ -49,7 +49,7 @@
   const $ = (id) => document.getElementById(id);
   let timer = null, boot = null, guess = null;
   const params = new URLSearchParams(location.search), TALL = params.has('tall'), PIN = params.get('piece');
-  const pieceNow = () => (PIN ? PIECES[Number(PIN) % PIECES.length] : pieceAt(Date.now()));
+  const pieceNow = () => (PIN ? PIECES.find((p) => p.name.toLowerCase() === PIN.toLowerCase()) ?? PIECES[Number(PIN) % PIECES.length] ?? PIECES[0] : pieceAt(Date.now()));
   document.body.classList.toggle('tall', TALL);
 
   // --- neon art: strokes rendered once per piece (bloom, hot core, chromatic split), then composited every frame ---
