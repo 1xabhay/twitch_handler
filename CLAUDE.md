@@ -37,6 +37,7 @@ Twitch handler app. Open source (MIT), public at github.com/1xabhay/twitch_handl
 - `docs/FOCUS.md` — research behind the focus timer presets.
 - `docs/SETUP.md` — tested macOS streaming setup (Twitch app, OBS, free GoPro webcam, audio).
 - `docs/THEMES.md` — how to make a theme (rules, kit reference, lot sizes). `npm run preview -- <theme> <phase>` shows a demo city on :3005, no Twitch.
+- `docs/SPOTIFY-STREAM-ONLY.md` — Spotify on stream, silent on the Mac speakers (AudioTee muted process tap), scenes with mic badges.
 - `docs/ROADMAP.md` — long-term: vulnerability testing, in-house infra with cloud as a parallel distribution channel.
 - `docs/CITY.md` — engineer/PM/designer review of the pixel city, positioning vs PomodoroWorld, backlog.
 
