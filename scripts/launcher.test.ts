@@ -26,6 +26,12 @@ describe('npm run launcher', () => {
     expect(kill < start && start < obs).toBe(true);
     expect(body).toContain(`cd "${process.cwd()}"`);
   });
+  it('opens Background Music before OBS (per-app volume: Spotify stream-only), and goes on without it', () => {
+    const bgm = body.indexOf('open -g -a "Background Music"');
+    expect(bgm).toBeGreaterThan(-1);
+    expect(bgm).toBeLessThan(body.indexOf('open -W -a OBS'));
+    expect(body.slice(bgm, body.indexOf('\n', bgm))).toContain('|| true');
+  });
   it('stops the bot when OBS quits', () => {
     expect(body.indexOf('kill $BOT')).toBeGreaterThan(body.indexOf('open -W -a OBS'));
   });
