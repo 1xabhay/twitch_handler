@@ -6,15 +6,31 @@ import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { obsAuth } from '../src/obs.ts';
-import { roomMuted } from '../src/quiet.ts';
+import { obs } from '../src/obsws.ts';
+import { defaultOutput, roomMuted } from '../src/quiet.ts';
 
 const AUDIOTEE = process.env.AUDIOTEE ?? `${homedir()}/.local/src/audiotee/.build/release/audiotee`;
 const spotify = () => { try { return execFileSync('pgrep', ['-x', 'Spotify'], { encoding: 'utf8' }).trim().split('\n')[0]; } catch { return ''; } };
 
-let scene = '', tap: ChildProcess | null = null, tapped = '';
+const output = () => { try { return defaultOutput(execFileSync('system_profiler', ['SPAudioDataType'], { encoding: 'utf8' })); } catch { return ''; } };
+// OBS's app capture goes silent after an output change too: point it away and back to restart it.
+const repoint = async () => {
+  const [{ inputSettings }] = await obs([['GetInputSettings', { inputName: 'Spotify' }]]);
+  await obs([['SetInputSettings', { inputName: 'Spotify', inputSettings: { application: '' } }]]);
+  await new Promise((r) => setTimeout(r, 1_000));
+  await obs([['SetInputSettings', { inputName: 'Spotify', inputSettings }]]);
+};
+
+let scene = '', tap: ChildProcess | null = null, tapped = '', device = output();
 const stop = () => { tap?.kill(); tap = null; };
 const apply = () => {
   if (!scene) return; // OBS not reached yet
+  const now = output();
+  if (now && now !== device) {
+    console.log(`output ${device} → ${now}: restarting the tap and OBS's Spotify capture`);
+    device = now, stop();
+    repoint().catch((e) => console.log('repoint failed:', e.message));
+  }
   const want = roomMuted(scene), pid = want ? spotify() : '';
   if (tap && (!want || pid !== tapped)) stop(), console.log(`${scene}: Spotify back on the Mac`); // talking, or Spotify restarted
   if (want && !tap && pid) {

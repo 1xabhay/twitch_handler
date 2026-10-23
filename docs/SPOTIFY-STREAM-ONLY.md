@@ -59,6 +59,7 @@ Measured result: the OBS Spotify meter stayed at about -17 dB with the tap on an
 | `Failed to translate process IDs` | Helper processes have no audio | Use `pgrep -x Spotify` (main process only), not `pgrep -f Spotify`. |
 | `Invalid value ... for option: include-processes` (zsh) | zsh gave all IDs as one argument | Use `$(pgrep -x Spotify)` directly, not a variable. |
 | Tap worked, then Spotify plays again | Spotify restarted and has a new process ID | Do step 3 again. |
+| Tap worked, then Spotify plays again; OBS Spotify meter silent too | The Mac output device changed (headphones, a removed virtual device). The tap and the OBS capture stay on the old device. | Stop and start the tap. In OBS, set the Spotify source to another app and back. The switch script does both by itself. |
 | OBS Spotify meter is silent | Spotify is turned down before OBS (per-app volume app, Spotify volume 0) | Set Spotify to full volume in other tools. Use the tap for the mute. |
 | Mic is live in a scene without the mic | Mic is a global audio device: it plays in all scenes | Settings, Audio, Global Audio Devices, Mic/Auxiliary Audio: Disabled. Add the mic as a source to the talk scenes only. |
 
@@ -87,6 +88,6 @@ The Break scene: the full pixel city replaces the camera. The BRB badge goes und
 
 ## Follow the scene
 
-[scripts/spotify-quiet.ts](../scripts/spotify-quiet.ts) does the procedure for you. It watches the OBS scene over obs-websocket. In Focus and Break it starts the muted tap. In Notfocussed it stops the tap, so Spotify plays in the room while you talk. It taps Spotify again when Spotify restarts. Run it with `make spotify-quiet`, or let the launcher start it with OBS.
+[scripts/spotify-quiet.ts](../scripts/spotify-quiet.ts) does the procedure for you. It watches the OBS scene over obs-websocket. In Focus and Break it starts the muted tap. In Notfocussed it stops the tap, so Spotify plays in the room while you talk. It taps Spotify again when Spotify restarts, and when the Mac output device changes it restarts the tap and the OBS Spotify capture. Run it with `make spotify-quiet`, or let the launcher start it with OBS.
 
 To make the room music quieter, turn down the Mac volume. Do not use the Spotify volume slider: it also makes the stream quieter.
