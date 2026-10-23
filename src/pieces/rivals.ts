@@ -41,7 +41,7 @@ export const RIVALS: Piece[] = [
     { d: feet([116, 191], [172, 191]), c: 'violet', sil: true },
     { d: limb([[128, 74], [114, 102], [116, 130]], 10, 7) + ' ' + circle(116, 134, 6), c: 'violet', sil: true },
     { d: limb([[166, 74], [190, 66], [200, 36]], 10, 8) + ' ' + circle(201, 31, 6), c: 'violet', sil: true }, // reaching back for Yoru
-    { d: 'M199 28 L105 188 L102 196 L101 186 L192 34', c: 'white', w: 1.5 }, // Yoru across his back
+    { d: 'M199 28 L116 168 L112 176 L112 166 L192 34', c: 'white', w: 1.5 }, // Yoru across his back
     { d: 'M212 6 L199 28 M214 42 Q200 36 186 18 M218 46 L214 42 M182 14 L186 18', c: 'yellow', w: 3 }, // its cross hilt
     { d: circle(199, 28, 3), c: 'green', w: 2, fill: true },
   ] },
@@ -52,23 +52,22 @@ export const RIVALS: Piece[] = [
     { d: 'M128 64 L170 62 Q178 100 182 128 Q190 150 198 166 Q180 166 166 158 L150 140 L134 158 Q122 164 106 160 Q116 140 118 120 Q120 90 128 64 Z', c: 'yellow', sil: true }, // the long coat, flaring
     { d: limb([[142, 146], [126, 166], [118, 189]], 11, 8) + ' ' + limb([[158, 146], [164, 168], [176, 189]], 11, 8), c: 'yellow', sil: true },
     { d: feet([116, 191], [180, 191]), c: 'yellow', sil: true },
-    { d: limb([[166, 68], [182, 92], [160, 100]], 10, 8) + ' ' + circle(155, 100, 6), c: 'yellow', sil: true }, // hand on the hilt
+    { d: limb([[166, 68], [184, 80], [176, 60]], 10, 8) + ' ' + circle(175, 56, 6), c: 'yellow', sil: true }, // hand on the hilt at his shoulder
     { d: limb([[130, 68], [120, 96], [126, 122]], 10, 7), c: 'yellow', sil: true }, // the other hand in a pocket
-    { d: limb([[136, 115], [272, 14]], 5, 6) + ' ' + limb([[142, 110], [150, 104]], 18), c: 'yellow', sil: true }, // Kikoku on his shoulder
+    { d: poly([[160, 62], [44, 84], [46, 92], [164, 70]], true) + ' ' + limb([[160, 60], [168, 72]], 5) + ' ' + limb([[166, 64], [190, 36]], 6), c: 'yellow', sil: true }, // Kikoku over his shoulder, blade down behind his back
     { d: poly([...fuzz(146, 41, 18, 18, Math.PI, 2 * Math.PI, 7), ...fuzz(146, 41, 21, 5, 0, Math.PI, 6)], true), c: 'white', w: 2, fill: true }, // the spotted fur hat
     { d: `${ellipse(138, 31, 3, 2)} ${ellipse(152, 28, 3, 2)} ${ellipse(146, 37, 2.5, 1.5)} ${ellipse(158, 37, 2.5, 1.5)} ${ellipse(135, 39, 2, 1.5)}`, c: 'violet', w: 1.5, fill: true },
   ] },
   { name: 'Doflamingo', answers: ['doflamingo', 'donquixotedoflamingo', 'doffy', 'joker', 'heavenlyyaksha'], art: [
-    { d: 'M54 44 L36 0 M62 40 L60 0 M70 44 L82 0 M246 44 L264 0 M238 40 L240 0 M230 44 L218 0', c: 'white', w: 1 }, // the strings
+    { d: 'M84 40 L74 0 M90 36 L92 0 M96 40 L110 0 M216 40 L226 0 M210 36 L208 0 M204 40 L190 0', c: 'white', w: 1 }, // the strings
     { d: ellipse(151, 46, 10, 12), c: 'pink', sil: true },
     { d: 'M141 42 Q140 32 146 34 Q150 28 155 33 Q162 32 161 42 Z', c: 'pink', sil: true }, // short spiky hair
     { d: limb([[151, 56], [150, 68]], 9), c: 'pink', sil: true },
-    { d: limb([[132, 74], [104, 70], [82, 56], [64, 46]], 12, 7) + ' ' + limb([[168, 74], [196, 70], [218, 56], [236, 46]], 12, 7), c: 'pink', sil: true }, // arms spread wide
-    { d: poly([[56, 38], [62, 48], [54, 46], [58, 54], [70, 52], [74, 42], [70, 36], [66, 44], [64, 36]], true) + ' ' + poly([[244, 38], [238, 48], [246, 46], [242, 54], [230, 52], [226, 42], [230, 36], [234, 44], [236, 36]], true), c: 'pink', sil: true }, // fingers hooked on the strings
-    { d: limb([[150, 68], [150, 124]], 34, 26), c: 'pink', sil: true },
-    { d: puff([[146, 64], [136, 96], [124, 140], [114, 178], [80, 172], [66, 128], [74, 92], [100, 70]], 2, 9) + ' ' + puff([[154, 64], [200, 70], [226, 92], [234, 128], [220, 172], [186, 178], [176, 140], [164, 96]], 2, 9), c: 'pink', sil: true }, // the feather coat
-    { d: limb([[142, 120], [126, 156], [106, 189]], 12, 8) + ' ' + limb([[158, 120], [174, 156], [194, 189]], 12, 8), c: 'pink', sil: true }, // wide stance
-    { d: feet([104, 191], [196, 191]), c: 'pink', sil: true },
+    { d: limb([[118, 80], [98, 70], [92, 48]], 12, 8) + ' ' + limb([[182, 80], [202, 70], [208, 48]], 12, 8), c: 'pink', sil: true }, // elbows bent, hands up at the strings
+    { d: poly([[84, 42], [86, 34], [90, 40], [92, 30], [96, 40], [100, 34], [100, 48], [86, 50]], true) + ' ' + poly([[216, 42], [214, 34], [210, 40], [208, 30], [204, 40], [200, 34], [200, 48], [214, 50]], true), c: 'pink', sil: true }, // open hands, fingers on the strings
+    { d: puff([[150, 60], [196, 66], [226, 84], [214, 104], [188, 118], [196, 176], [150, 180], [104, 176], [112, 118], [86, 104], [74, 84], [104, 66]], 2, 6), c: 'pink', sil: true }, // the feather mantle, widest at the shoulders, closed in front
+    { d: limb([[143, 172], [142, 189]], 11, 9) + ' ' + limb([[157, 172], [158, 189]], 11, 9), c: 'pink', sil: true }, // feet together
+    { d: feet([138, 191], [162, 191]), c: 'pink', sil: true },
     { d: 'M139 44 L150 44 L148 51 L140 51 Z M152 44 L163 44 L162 51 L154 51 Z', c: 'cyan', w: 1.8, fill: true }, // the shades
   ] },
   { name: 'Crocodile', answers: ['crocodile', 'sircrocodile', 'mrzero', 'misterzero'], art: [
@@ -105,9 +104,9 @@ export const RIVALS: Piece[] = [
     { d: poly([[104, 56], [90, 30], [104, 42], [98, 14], [112, 34], [116, 8], [122, 32], [134, 12], [130, 38], [146, 28], [128, 56]], true), c: 'red', sil: true }, // the flaming hair
     { d: limb([[118, 68], [120, 76]], 9), c: 'red', sil: true },
     { d: limb([[122, 78], [124, 126]], 40, 28), c: 'red', sil: true },
-    { d: puff([[100, 72], [146, 72], [140, 84], [104, 128], [84, 176], [56, 170], [72, 110]], 2, 7), c: 'red', sil: true }, // the fur coat, blown back
-    { d: limb([[114, 124], [96, 156], [74, 189]], 13, 9) + ' ' + limb([[134, 124], [150, 154], [168, 189]], 13, 9), c: 'red', sil: true },
-    { d: feet([72, 191], [172, 191]), c: 'red', sil: true },
+    { d: puff([[100, 70], [146, 72], [140, 84], [112, 108], [88, 124], [70, 112], [80, 86]], 2, 6), c: 'red', sil: true }, // the fur coat, blown back
+    { d: limb([[114, 124], [106, 156], [100, 189]], 13, 9) + ' ' + limb([[134, 124], [142, 156], [148, 189]], 13, 9), c: 'red', sil: true },
+    { d: feet([98, 191], [152, 191]), c: 'red', sil: true },
     { d: limb([[136, 84], [176, 104], [214, 84]], 24, 30) + ' ' + circle(146, 84, 17), c: 'red', sil: true }, // the giant metal arm
     { d: puff([[196, 38], [236, 22], [260, 46], [252, 84], [222, 92], [200, 72]], 2, 5), c: 'red', sil: true }, // its scrap fist, raised
     { d: poly([[168, 98], [172, 80], [182, 96]], true) + ' ' + poly([[196, 98], [204, 80], [210, 94]], true) + ' ' + poly([[230, 26], [236, 6], [244, 24]], true), c: 'red', sil: true }, // scrap spikes

@@ -2,6 +2,9 @@
 // A stroke is an SVG path, a NEON colour, a width and an optional faint holographic fill; timer.html adds the glow.
 // Style (streamer, 2026-10-22): the character as a dark silhouette in their signature pose, rim-lit in neon, plus ONE
 // glowing clue (hat, sword...). `sil` strokes are body parts: they merge into one dark shape and only its outer edge glows.
+// Family-safe silhouettes (2026-10-23, a kick read as phallic live): nothing long starts between the waist and mid-thigh.
+// Long props start at the hand or shoulder (y ≤ 75); kicks run level or higher with a bent knee and a flat foot, never a
+// taper or a rounded tip; no wide squat framing the crotch. Check every new piece as a ~100 px thumbnail, silhouette only.
 export const NEON = {
   pink: '#FF2E88', cyan: '#00F0FF', yellow: '#FFE14D', orange: '#FF8A1F', red: '#FF3B3B', green: '#39FF88', violet: '#B46BFF', blue: '#3D7BFF', white: '#F2F7FF',
 };

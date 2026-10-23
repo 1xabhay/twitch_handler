@@ -65,17 +65,18 @@ export const CREW: Piece[] = [
     { d: 'M200 58 L134 80 L236 60', c: 'pink', w: 1.5 },
   ] },
   { name: 'Sanji', answers: ['sanji', 'vinsmokesanji', 'blackleg'], art: [
-    { d: 'M276 187 A150 150 0 0 0 270 28 L246 46 A140 140 0 0 1 276 187 Z', c: 'orange', w: 2, fill: true }, // Diable Jambe: the kick's burning arc
-    { d: 'M262 160 A136 136 0 0 0 258 44 L246 54 A140 140 0 0 1 262 160 Z', c: 'red', w: 1.5, fill: true },
-    { d: 'M95 46 C94 32 110 26 120 34 C124 44 122 56 114 64 C114 56 112 48 106 42 C102 42 98 44 95 46 Z', c: 'yellow', sil: true }, // the fringe over one eye
-    { d: ellipse(107, 46, 12, 13) + ' ' + limb([[108, 56], [114, 66]], 9), c: 'cyan', sil: true },
-    { d: limb([[144, 114], [128, 84], [114, 64]], 24, 28), c: 'cyan', sil: true }, // leaning back
-    { d: 'M132 104 L156 106 C154 118 152 130 150 140 C146 134 142 130 138 128 C134 136 128 142 120 148 C126 132 130 118 132 104 Z', c: 'cyan', sil: true }, // jacket tails
-    { d: limb([[118, 70], [108, 92], [134, 110]], 10, 8), c: 'cyan', sil: true }, // hands in pockets
-    { d: limb([[140, 120], [134, 156], [126, 188]], 14, 9) + ' ' + ellipse(133, 191, 13, 4), c: 'cyan', sil: true },
-    { d: limb([[146, 112], [200, 74], [264, 32]], 16, 9) + ' ' + limb([[260, 34], [282, 20]], 9, 7), c: 'orange', sil: true }, // the kick, a burning leg
-    { d: 'M117 52 L129 49', c: 'orange', w: 2.5 }, // cigarette
-    { d: 'M131 46 C139 36 127 28 135 18 C141 10 133 6 139 2', c: 'white', w: 1.2 },
+    { d: 'M246 112 A70 70 0 0 0 214 26 L210 40 A58 58 0 0 1 234 108 Z', c: 'orange', w: 2, fill: true }, // Diable Jambe: the kick's burning arc past the shoe
+    { d: 'M232 98 A52 52 0 0 0 214 48 L212 58 A42 42 0 0 1 224 96 Z', c: 'red', w: 1.5, fill: true },
+    { d: 'M104 44 C103 30 119 24 129 32 C133 42 131 54 123 62 C123 54 121 46 115 40 C111 40 107 42 104 44 Z', c: 'yellow', sil: true }, // the fringe over one eye
+    { d: ellipse(116, 44, 12, 13) + ' ' + limb([[117, 54], [123, 64]], 9), c: 'cyan', sil: true },
+    { d: limb([[142, 108], [132, 84], [124, 62]], 24, 28), c: 'cyan', sil: true }, // upright, a slight counter-lean
+    { d: 'M130 102 L154 104 C152 116 150 128 148 138 C144 132 140 128 136 126 C132 134 126 140 118 146 C124 130 128 116 130 102 Z', c: 'cyan', sil: true }, // jacket tails
+    { d: limb([[126, 68], [116, 90], [140, 106]], 10, 8), c: 'cyan', sil: true }, // hands in pockets
+    { d: limb([[140, 114], [138, 152], [132, 184]], 15, 10) + ' ' + poly([[122, 182], [140, 182], [150, 188], [150, 192], [122, 192]], true), c: 'cyan', sil: true }, // standing leg, flat shoe
+    { d: limb([[150, 100], [156, 74], [162, 46]], 16, 14) + ' ' + limb([[158, 44], [180, 50], [198, 58]], 13, 11), c: 'orange', sil: true }, // knee up by the shoulder, shin folded out at head height
+    { d: poly([[194, 50], [210, 50], [222, 56], [224, 62], [206, 66], [194, 66]], true), c: 'orange', sil: true }, // a flat shoe, sole and heel
+    { d: 'M126 50 L138 47', c: 'orange', w: 2.5 }, // cigarette
+    { d: 'M140 44 C148 34 136 26 144 16 C150 8 142 4 148 0', c: 'white', w: 1.2 },
   ] },
   { name: 'Chopper', answers: ['chopper', 'tonytonychopper', 'tonychopper'], art: [
     { d: circle(150, 96, 80), c: 'cyan', w: 1.5, fill: true }, // the Drum Island moon
@@ -84,8 +85,8 @@ export const CREW: Piece[] = [
     { d: ellipse(150, 92, 34, 30), c: 'orange', sil: true },
     { d: ellipse(150, 140, 26, 24), c: 'orange', sil: true },
     { d: limb([[128, 130], [110, 116], [104, 100]], 12, 9) + ' ' + circle(104, 97, 6) + ' ' + limb([[172, 130], [190, 116], [196, 100]], 12, 9) + ' ' + circle(196, 97, 6), c: 'orange', sil: true }, // the happy dance
-    { d: limb([[138, 156], [130, 184]], 15, 12) + ' ' + limb([[162, 154], [182, 168], [194, 160]], 15, 11), c: 'orange', sil: true }, // one hoof kicked up
-    { d: ellipse(128, 188, 11, 5) + ' ' + ellipse(198, 158, 6, 9), c: 'orange', sil: true },
+    { d: limb([[138, 156], [130, 184]], 15, 12) + ' ' + limb([[162, 154], [176, 170], [182, 184]], 15, 11), c: 'orange', sil: true }, // mid-hop, one hoof forward
+    { d: ellipse(128, 188, 11, 5) + ' ' + ellipse(186, 188, 11, 5), c: 'orange', sil: true },
     { d: ellipse(150, 66, 42, 8), c: 'pink', w: 2, fill: true }, // the pink top hat
     { d: 'M122 64 C118 40 120 26 126 22 Q150 14 174 22 C180 26 182 40 178 64', c: 'pink', w: 2, fill: true },
     { d: 'M142 32 L158 48 M158 32 L142 48', c: 'white', w: 3 },
@@ -100,9 +101,9 @@ export const CREW: Piece[] = [
     { d: limb([[146, 130], [138, 160], [130, 188]], 7, 5) + ' ' + limb([[154, 130], [150, 160], [164, 188]], 7, 5), c: 'violet', sil: true }, // thin, so thin
     { d: ellipse(126, 191, 9, 3) + ' ' + ellipse(168, 191, 9, 3), c: 'violet', sil: true },
     { d: limb([[138, 88], [112, 98], [90, 86]], 6, 5), c: 'violet', sil: true }, // violin hand
-    { d: limb([[156, 88], [180, 104], [156, 104]], 6, 5), c: 'violet', sil: true }, // bow hand
+    { d: limb([[156, 86], [176, 84], [178, 64]], 6, 5), c: 'violet', sil: true }, // bow hand, raised
     { d: ellipse(126, 90, 12, 9) + ' ' + ellipse(109, 89, 9, 7) + ' M100 88 L80 84 ' + circle(77, 83, 3.5), c: 'orange', w: 2, fill: true }, // the violin
-    { d: 'M192 122 L90 70', c: 'white', w: 1.5 },
+    { d: 'M190 54 L92 100', c: 'white', w: 1.5 }, // the bow, angled up across the violin
   ] },
   { name: 'Ace', answers: ['ace', 'portgasdace', 'portgas', 'firefist'], art: [
     { d: [[40, 54], [65, 62], [90, 64], [115, 60], [140, 50]].map(([deg, l]) => flame(228, 70, l!, deg!, 16)).join(' '), c: 'orange', w: 1.5, fill: true }, // Fire Fist
@@ -113,7 +114,7 @@ export const CREW: Piece[] = [
     { d: poly([[94, 110], [124, 110], [132, 136], [96, 140]], true), c: 'cyan', sil: true },
     { d: limb([[124, 130], [156, 150], [166, 186]], 18, 11) + ' ' + limb([[100, 132], [72, 160], [40, 186]], 17, 10), c: 'cyan', sil: true }, // lunge
     { d: ellipse(170, 190, 13, 5) + ' ' + ellipse(36, 190, 12, 5), c: 'cyan', sil: true },
-    { d: limb([[130, 76], [180, 72], [218, 70]], 15, 11) + ' ' + circle(226, 70, 10), c: 'cyan', sil: true }, // the punch
+    { d: limb([[130, 76], [172, 88], [212, 72]], 15, 11) + ' ' + poly([[210, 62], [228, 60], [232, 66], [230, 80], [210, 82]], true), c: 'cyan', sil: true }, // the punch
     { d: limb([[104, 78], [86, 96], [100, 106]], 12, 10) + ' ' + circle(102, 106, 8), c: 'cyan', sil: true },
     { d: ellipse(110, 40, 24, 5) + ' M98 39 Q98 20 110 22 Q122 20 122 39', c: 'orange', w: 2, fill: true }, // the cowboy hat
     { d: [[104, 70], [109, 75], [115, 78], [121, 77], [126, 73]].map(([x, y]) => circle(x!, y!, 2.2)).join(' '), c: 'red', w: 1.5, fill: true }, // red bead necklace

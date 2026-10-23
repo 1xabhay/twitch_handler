@@ -27,12 +27,12 @@ export const LEGENDS: Piece[] = [
     { d: poly([[132, 58], [168, 58], [166, 112], [134, 112]], true), c: 'red', sil: true },
     { d: 'M138 54 Q100 56 72 82 Q46 104 20 112 Q44 120 30 140 Q58 140 50 166 Q92 158 108 146 Q124 128 130 118 Z', c: 'red', sil: true }, // cape over the empty left sleeve, in the wind
     { d: poly([[164, 54], [186, 62], [194, 118], [190, 168], [168, 146]], true), c: 'red', sil: true },
-    { d: limb([[174, 66], [192, 98], [208, 116]], 15, 11), c: 'red', sil: true }, // sword arm
-    { d: circle(210, 119, 7), c: 'red', sil: true },
-    { d: limb([[142, 108], [134, 150], [124, 188]], 18, 12), c: 'red', sil: true },
-    { d: limb([[160, 108], [172, 148], [182, 186]], 18, 12), c: 'red', sil: true },
-    { d: ellipse(120, 190, 10, 4) + ' ' + ellipse(186, 188, 10, 4), c: 'red', sil: true },
-    { d: 'M212 122 Q248 150 284 172 M205 113 L221 127', c: 'cyan', w: 2.5 }, // Gryphon, the clue
+    { d: limb([[174, 64], [198, 80], [218, 60]], 15, 11), c: 'red', sil: true }, // sword arm, elbow bent, hand at shoulder height
+    { d: circle(220, 58, 7), c: 'red', sil: true },
+    { d: limb([[142, 108], [138, 150], [132, 188]], 18, 12), c: 'red', sil: true },
+    { d: limb([[160, 108], [166, 148], [172, 186]], 18, 12), c: 'red', sil: true },
+    { d: ellipse(128, 190, 10, 4) + ' ' + ellipse(176, 188, 10, 4), c: 'red', sil: true },
+    { d: 'M224 52 Q252 34 288 14 M215 48 L229 62', c: 'cyan', w: 2.5 }, // Gryphon raised up and out from the hand, the clue
     { d: 'M151 24 L156 46 M156 23 L161 45 M161 25 L165 42', c: 'red', w: 1.5 }, // three scars
   ] },
   { name: 'Whitebeard', answers: ['whitebeard', 'edwardnewgate', 'newgate', 'shirohige'], art: [

@@ -46,10 +46,9 @@ export const SHIPS: Piece[] = [
     { d: ellipse(150, 96, 11, 12) + ' ' + limb([[150, 100], [150, 112]], 14), c: 'pink', sil: true },
     { d: 'M139 90 C130 72 140 58 162 56 C178 55 182 66 172 69 C165 71 162 80 162 90 Z', c: 'blue', sil: true }, // the pompadour
     { d: 'M98 110 Q150 98 202 110 Q198 132 176 150 L124 150 Q102 132 98 110 Z', c: 'pink', sil: true }, // barrel chest
-    { d: poly([[104, 110], [80, 162], [120, 148]], true) + ' ' + poly([[196, 110], [220, 162], [180, 148]], true), c: 'pink', sil: true }, // open shirt flapping
-    { d: poly([[132, 146], [168, 146], [172, 160], [150, 166], [128, 160]], true), c: 'pink', sil: true }, // speedo
-    { d: limb([[138, 158], [114, 172], [104, 189]], 16, 10) + ' ' + limb([[162, 158], [188, 172], [198, 189]], 16, 10), c: 'pink', sil: true }, // wide bent legs
-    { d: ellipse(100, 191, 13, 4) + ' ' + ellipse(202, 191, 13, 4), c: 'pink', sil: true },
+    { d: poly([[104, 110], [94, 178], [206, 178], [196, 110]], true), c: 'pink', sil: true }, // open shirt hanging long, one shape over the hips
+    { d: limb([[140, 172], [134, 189]], 15, 12) + ' ' + limb([[160, 172], [166, 189]], 15, 12), c: 'pink', sil: true }, // narrow straight stance
+    { d: ellipse(130, 191, 12, 4) + ' ' + ellipse(170, 191, 12, 4), c: 'pink', sil: true },
     { d: limb([[108, 112], [86, 98], [88, 76]], 12, 10) + ' ' + limb([[192, 112], [214, 98], [212, 76]], 12, 10), c: 'pink', sil: true }, // skinny upper arms
     { d: limb([[88, 80], [108, 48], [136, 22]], 30, 24) + ' ' + limb([[212, 80], [192, 48], [164, 22]], 30, 24), c: 'blue', sil: true }, // giant forearms, pressed together: SUPER
     { d: circle(138, 15, 11) + ' ' + circle(162, 15, 11), c: 'blue', sil: true },
@@ -61,13 +60,13 @@ export const SHIPS: Piece[] = [
     { d: ellipse(124, 42, 21, 18) + ' ' + ellipse(138, 50, 14, 10), c: 'yellow', sil: true }, // broad fish-man head, heavy jaw
     { d: poly([[146, 56], [156, 40], [156, 56]], true), c: 'yellow', sil: true }, // tusk jutting from the jaw
     { d: limb([[108, 30], [88, 34], [74, 50], [64, 72]], 13, 6), c: 'yellow', sil: true }, // hair tied back
-    { d: ellipse(122, 92, 46, 40), c: 'yellow', sil: true }, // massive kimono frame
-    { d: limb([[150, 72], [194, 76], [228, 78]], 24, 15) + ' ' + poly([[146, 70], [200, 74], [204, 104], [184, 114], [150, 98]], true), c: 'yellow', sil: true }, // thrusting arm, sleeve hanging
-    { d: ellipse(236, 76, 7, 12) + ' ' + limb([[236, 82], [244, 72]], 5, 3.5), c: 'yellow', sil: true }, // open palm
-    { d: limb([[94, 72], [76, 98], [96, 114]], 22, 16) + ' ' + poly([[96, 74], [70, 92], [72, 124], [92, 120]], true) + ' ' + circle(102, 114, 10), c: 'yellow', sil: true }, // fist pulled back at the hip
-    { d: limb([[132, 118], [176, 148], [188, 190]], 34, 24) + ' ' + limb([[110, 118], [82, 152], [58, 190]], 34, 22), c: 'yellow', sil: true }, // deep stance, wide trousers
-    { d: ellipse(194, 192, 14, 4) + ' ' + ellipse(52, 192, 14, 4), c: 'yellow', sil: true },
-    { d: 'M252 58 Q264 76 252 94 M264 46 Q282 76 264 106 M276 36 Q298 76 276 116', c: 'cyan', w: 2.5 }, // fish-man karate: the water ripples
+    { d: poly([[84, 74], [100, 58], [150, 58], [164, 74], [178, 186], [70, 186]], true), c: 'yellow', sil: true }, // massive kimono, one closed robe to the ground
+    { d: limb([[146, 70], [180, 92], [208, 62]], 22, 16), c: 'yellow', sil: true }, // striking arm, elbow bent low, forearm up
+    { d: poly([[200, 72], [204, 40], [210, 38], [212, 52], [216, 36], [222, 38], [220, 54], [228, 44], [233, 48], [222, 66], [214, 76]], true), c: 'yellow', sil: true }, // open palm, fingers up
+    { d: limb([[92, 72], [58, 100], [86, 112]], 20, 14) + ' ' + poly([[84, 106], [104, 100], [108, 108], [90, 118]], true), c: 'yellow', sil: true }, // guard arm, flat hand across the chest
+    { d: ellipse(88, 188, 16, 4) + ' ' + ellipse(160, 188, 16, 4), c: 'yellow', sil: true }, // sandals
+    { d: 'M232 32 Q256 30 268 52 Q254 46 244 54 M236 74 Q260 74 274 96 Q258 90 246 96 M240 54 Q262 58 286 72', c: 'cyan', w: 2.5 }, // fish-man karate: water curls off the palm
+    { d: 'M258 18 Q262 26 258 30 Q254 26 258 18 Z M284 72 Q288 80 284 84 Q280 80 284 72 Z M270 124 Q274 132 270 136 Q266 132 270 124 Z', c: 'cyan', w: 2, fill: true }, // droplets
   ] },
   { name: 'Going Merry', answers: ['goingmerry', 'merry', 'merrygo', 'goingmerrygo'], art: [
     { d: circle(232, 62, 44), c: 'yellow', w: 1.5, fill: true }, // full moon

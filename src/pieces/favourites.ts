@@ -14,13 +14,14 @@ export const FAVOURITES: Piece[] = [
     s(limb([[138, 112], [136, 150], [130, 188]], 18, 9) + ' ' + limb([[154, 112], [158, 150], [162, 188]], 18, 9), 'violet'),
     s(ellipse(126, 191, 10, 3) + ' ' + ellipse(166, 191, 10, 3), 'violet'),
     s(poly([[128, 100], [166, 100], [172, 130], [168, 176], [158, 176], [150, 132], [138, 176], [124, 176], [122, 130]], true), 'violet'), // long dress, slit
-    s(limb([[146, 114], [152, 90], [160, 66]], 26, 34), 'violet'), // leaning back
-    s(limb([[162, 64], [168, 52]], 10), 'violet'),
-    s(limb([[168, 50], [168, 44], [164, 34]], 21, 15), 'violet'), // head tipped back, chin up
-    s(limb([[172, 34], [188, 62], [194, 100], [196, 140]], 24, 14), 'violet'), // straight hair falling behind
-    s(limb([[146, 68], [122, 82], [100, 96]], 10, 7) + ' ' + circle(97, 98, 5) + ' ' + limb([[94, 100], [84, 108]], 3.5, 2.5), 'violet'), // pointing down at you
-    s(limb([[174, 68], [198, 90], [166, 108]], 10, 8), 'violet'), // hand on hip
-    s(limb(Array.from({ length: 13 }, (_, i) => { const a = Math.PI * (0.5 + i / 4), k = 1 - i / 24; return [244 + Math.cos(a) * 30 * k, 182 + Math.sin(a) * 8 * k] as [number, number]; }), 10, 9) + ' ' + limb([[272, 182], [276, 160], [256, 146], [262, 126]], 11, 8) + ' ' + ellipse(266, 120, 11, 7), 'violet'), // Salome coiled beside her
+    s(limb([[146, 114], [148, 90], [150, 66]], 26, 34), 'violet'), // standing tall
+    s(limb([[150, 64], [151, 52]], 10), 'violet'),
+    s(limb([[151, 50], [152, 44], [150, 34]], 21, 15), 'violet'), // chin up
+    s(limb([[158, 34], [172, 62], [176, 100], [178, 140]], 24, 14), 'violet'), // straight hair falling behind
+    s(limb([[138, 68], [118, 82], [100, 96]], 10, 7) + ' ' + circle(97, 98, 5) + ' ' + limb([[94, 100], [84, 108]], 3.5, 2.5), 'violet'), // pointing down at you
+    s(limb([[164, 68], [184, 86], [164, 100]], 10, 8), 'violet'), // hand on hip
+    s(limb(Array.from({ length: 13 }, (_, i) => [234 + i * 5, 184 + Math.sin(i * 0.9) * 5] as [number, number]), 11, 6) + ' ' + poly([[238, 179], [230, 176], [214, 178], [206, 184], [214, 190], [230, 192], [238, 189]], true), 'violet'), // Salome on the ground
+    { d: 'M206 184 L194 184 L187 177 M194 184 L187 191', c: 'pink', w: 2.5 }, // forked tongue
     { d: heart(72, 112, 26), c: 'pink', w: 2, fill: true }, // Mero Mero heart off her fingertip
   ] },
   { name: 'Sabo', answers: ['sabo', 'revolutionary', 'flameemperor'], art: [
@@ -45,11 +46,11 @@ export const FAVOURITES: Piece[] = [
     s(ellipse(150, 44, 12, 13), 'cyan'),
     s(limb([[150, 56], [150, 64]], 10), 'cyan'),
     s(poly([[130, 62], [172, 62], [168, 112], [134, 112]], true), 'cyan'),
-    s(poly([[132, 106], [168, 106], [198, 188], [170, 190], [152, 140], [138, 190], [102, 188]], true), 'cyan'), // hakama, wide stance
-    s(ellipse(110, 190, 12, 4) + ' ' + ellipse(190, 190, 12, 4), 'cyan'),
-    s(limb([[138, 108], [172, 66], [258, 14]], 7, 22), 'cyan'), // kanabo over the shoulder
-    s([[214, 30], [232, 18], [246, 26], [226, 40]].map(([x, y]) => circle(x!, y!, 3.5)).join(' '), 'cyan'), // its studs
-    s(limb([[170, 66], [180, 92], [146, 102]], 11, 8) + ' ' + circle(142, 102, 7), 'cyan'),
+    s(poly([[132, 106], [168, 106], [184, 188], [158, 190], [150, 150], [142, 190], [116, 188]], true), 'cyan'), // hakama, wide stance
+    s(ellipse(122, 190, 12, 4) + ' ' + ellipse(178, 190, 12, 4), 'cyan'),
+    s(limb([[156, 72], [208, 42], [256, 14]], 9, 22), 'cyan'), // kanabo resting on the shoulder
+    s([[200, 46], [222, 32], [244, 19]].flatMap(([x, y], i) => [1, -1].map((k) => circle(x! + 0.52 * k * (9 + i * 2), y! + 0.86 * k * (9 + i * 2), 4.5))).join(' '), 'cyan'), // its studs
+    s(limb([[170, 66], [196, 78], [186, 58]], 11, 8) + ' ' + circle(184, 56, 7), 'cyan'), // gripping it up high
     s(limb([[132, 66], [120, 92], [118, 114]], 10, 8) + ' ' + circle(118, 117, 6), 'cyan'),
     { d: 'M141 36 Q126 26 132 4 Q140 22 148 32 Z M159 32 Q166 22 172 4 Q178 26 163 36 Z', c: 'orange', w: 2, fill: true }, // oni horns
   ] },
@@ -58,14 +59,14 @@ export const FAVOURITES: Piece[] = [
     { d: 'M0 196 Q80 176 160 190 Q230 200 300 184', c: 'orange', w: 1.5 },
     s(ellipse(140, 128, 42, 24), 'violet'), // Karoo
     s(poly([[104, 120], [76, 106], [86, 124], [72, 132], [104, 138]], true), 'violet'),
-    s(limb([[168, 122], [186, 100], [184, 80], [196, 62]], 22, 14), 'violet'),
-    s(ellipse(200, 58, 13, 11) + ' ' + 'M208 52 Q234 50 238 58 Q228 66 208 64 Z' + ' ' + limb([[196, 48], [188, 36]], 4, 2), 'violet'),
+    s(limb([[178, 128], [188, 96], [196, 74]], 20, 13), 'violet'), // neck upright like an ostrich, in front of her chest
+    s(ellipse(200, 66, 13, 11) + ' ' + 'M208 62 Q224 62 228 68 Q220 72 208 72 Z' + ' ' + limb([[196, 56], [192, 46]], 4, 2), 'violet'),
     s(limb([[150, 146], [170, 162], [184, 184]], 10, 5) + ' ' + poly([[178, 184], [200, 190], [180, 193]], true), 'violet'), // running
     s(limb([[128, 146], [110, 160], [92, 172]], 10, 5) + ' ' + poly([[96, 168], [76, 176], [90, 180]], true), 'violet'),
     s(limb([[124, 108], [150, 110]], 14) + ' ' + limb([[150, 110], [154, 134]], 10, 7), 'violet'), // Vivi in the saddle
     s(limb([[128, 108], [136, 88], [148, 72]], 18, 16), 'violet'),
     s(ellipse(154, 60, 10, 11), 'violet'),
-    s(limb([[146, 76], [168, 90], [182, 92]], 7, 5), 'violet'),
+    s(limb([[146, 76], [166, 90], [184, 102]], 7, 5), 'violet'), // hands on the neck
     s(limb([[152, 50], [130, 42], [106, 46], [80, 38]], 12, 3), 'violet'), // high ponytail streaming back
     { d: 'M152 48 C134 40 116 44 82 38 M150 53 C130 48 110 50 92 46', c: 'cyan', w: 2.5 },
     { d: circle(152, 50, 3.5), c: 'cyan', w: 2, fill: true },
@@ -86,14 +87,14 @@ export const FAVOURITES: Piece[] = [
   { name: 'Bon Clay', answers: ['bonclay', 'bonkure', 'bentham', 'mrtwo', 'mistertwo', 'mrtwobonclay'], art: [
     { d: circle(156, 100, 80), c: 'yellow', w: 1.5, fill: true }, // stage spotlight
     s(limb([[150, 120], [148, 156], [146, 184]], 22, 10) + ' ' + limb([[146, 182], [146, 195]], 7, 2), 'pink'), // en pointe
-    s(limb([[156, 116], [204, 104], [252, 90]], 20, 7) + ' ' + limb([[252, 90], [268, 86]], 6, 2), 'pink'), // arabesque leg
+    s(limb([[152, 118], [184, 112]], 18, 14) + ' ' + limb([[184, 112], [154, 150]], 13, 9) + ' ' + poly([[156, 146], [146, 154], [150, 158], [160, 152]], true), 'pink'), // passe, foot at the knee
     s(limb([[150, 120], [136, 96], [118, 76]], 30, 34), 'pink'), // big frame
-    s(poly([[146, 98], [182, 108], [210, 146], [166, 130]], true), 'pink'), // coat tails
+    s(poly([[146, 98], [176, 104], [184, 120], [162, 118]], true), 'pink'), // coat tails
     s(limb([[114, 72], [106, 62]], 11) + ' ' + ellipse(102, 54, 11, 12), 'pink'),
     s(limb([[110, 76], [84, 54], [60, 30]], 11, 7) + ' ' + circle(57, 27, 5), 'pink'),
     s(limb([[132, 86], [168, 92], [204, 84]], 11, 7) + ' ' + circle(207, 83, 5), 'pink'),
-    { d: 'M128 76 C144 62 124 46 128 34 C130 24 120 22 116 28 M142 82 C156 66 150 52 160 40 C166 32 174 32 176 38', c: 'white', w: 5 }, // swan necks on his coat
-    { d: ellipse(117, 29, 7, 4.5) + ' ' + ellipse(175, 39, 7, 4.5), c: 'white', w: 2, fill: true },
-    { d: 'M111 28 L101 33 L111 33 Z M181 38 L191 43 L181 43 Z', c: 'orange', w: 1.5, fill: true },
+    { d: 'M120 70 C132 56 114 44 120 32 C124 22 114 20 110 26 M176 90 C190 74 180 58 192 46 C198 38 206 38 208 44', c: 'white', w: 3.5 }, // swans: one per shoulder, far apart
+    { d: ellipse(111, 27, 7, 4.5) + ' ' + ellipse(207, 45, 7, 4.5), c: 'white', w: 2, fill: true },
+    { d: 'M105 26 L95 31 L105 31 Z M213 44 L223 49 L213 49 Z', c: 'orange', w: 1.5, fill: true },
   ] },
 ];

@@ -63,12 +63,14 @@ export const MARINES: Piece[] = [
     sil(ellipse(140, 38, 12, 14) + ' ' + limb([[140, 48], [136, 62]], 11), 'violet'),
     sil(limb([[134, 62], [142, 92], [148, 118]], 36, 28), 'violet'),
     sil(limb([[142, 116], [128, 156], [118, 188]], 20, 13) + ' ' + ellipse(112, 191, 14, 4), 'violet'), // standing leg
-    sil(limb([[154, 114], [200, 96], [248, 70]], 20, 13) + ' ' + limb([[244, 74], [266, 60]], 10, 8), 'violet'), // the kick
-    sil(limb([[118, 66], [110, 92], [130, 112]], 12, 10) + ' ' + limb([[150, 64], [164, 90], [156, 112]], 12, 10), 'violet'), // hands in pockets
+    sil(limb([[152, 116], [166, 154], [174, 188]], 20, 13) + ' ' + ellipse(180, 191, 14, 4), 'violet'), // second leg, planted
+    sil(limb([[146, 66], [196, 68], [238, 68]], 13, 9) + ' ' + ellipse(240, 68, 6, 5) + ' ' + limb([[244, 67], [254, 67]], 3), 'violet'), // arm straight out, one finger pointing
+    sil(limb([[118, 66], [110, 92], [130, 112]], 12, 10), 'violet'), // other hand in the pocket
     sil(poly([[118, 56], [154, 58], [160, 82], [150, 120], [128, 150], [100, 172], [84, 164], [70, 178], [60, 160], [88, 120], [104, 76]], true), 'violet'), // Justice coat
     sil(limb([[118, 62], [96, 92], [76, 112]], 13, 9), 'violet'),
     { d: 'M132 33 L158 33 L157 42 L148 42 L145 36 L143 42 L134 42 Z', c: 'orange', w: 2, fill: true }, // the shades
-    { d: 'M268 58 L296 44 M268 62 L298 58 M266 54 L288 32', c: 'yellow', w: 1.5 },
+    { d: 'M256 67 L298 67', c: 'yellow', w: 4 }, // light-speed beam from the fingertip
+    { d: 'M256 61 L262 67 L256 73 M262 60 L262 74', c: 'white', w: 1.5 },
   ] },
   { name: 'Akainu', answers: ['akainu', 'sakazuki', 'fleetadmiralakainu'], art: [
     { d: circle(150, 112, 76), c: 'red', w: 1.5, fill: true }, // magma glow
