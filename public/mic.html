@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- Mic-off badge for the Focus scene (OBS browser source, local file, 380x64). Static: the scene itself carries the state. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap">
+<style>
+  html, body { margin: 0; background: transparent; }
+  .badge { box-sizing: border-box; width: 380px; height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 18px;
+           background: linear-gradient(160deg, #0C081C, #20062C); border: 2px solid #FF2E88;
+           box-shadow: 0 0 14px rgba(255,46,136,.5), inset 0 0 22px rgba(0,240,255,.12); color: #E8F6FF; }
+  .tag { font: 700 15px 'Orbitron', sans-serif; letter-spacing: 3px; padding: 4px 8px; border: 1.5px solid currentColor;
+         color: #FF2E88; text-shadow: 0 0 8px rgba(255,46,136,.9); animation: breathe 4s ease-in-out infinite; }
+  .note { font: 14px 'Share Tech Mono', monospace; letter-spacing: 2px; text-transform: uppercase; color: rgba(200,230,255,.8); }
+  @keyframes breathe { 50% { opacity: .65; } }
+</style>
+<div class="badge"><span class="tag">MIC OFF</span><span class="note">heads down, chat away</span></div>
