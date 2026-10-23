@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Mic-off badge for the Focus scene (OBS browser source, local file, 380x64). Static: the scene itself carries the state. -->
+<!-- Mic-off badge (OBS browser source, file:// URL, 380x64). Focus: mic.html, Break: mic.html?brb. Static: the scene carries the state. -->
 <meta charset="utf-8">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap">
 <style>
@@ -13,3 +13,6 @@
   @keyframes breathe { 50% { opacity: .65; } }
 </style>
 <div class="badge"><span class="tag">MIC OFF</span><span class="note">heads down, chat away</span></div>
+<script>
+  if (location.search === '?brb') document.querySelector('.badge').innerHTML = '<span class="tag">BRB</span><span class="note">mic off, back soon</span>';
+</script>
