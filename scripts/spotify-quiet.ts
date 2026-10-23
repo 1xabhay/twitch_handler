@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { obsAuth } from '../src/obs.ts';
 import { obs } from '../src/obsws.ts';
-import { defaultOutput, roomMuted } from '../src/quiet.ts';
+import { defaultOutput, roomMuted, talkVolume } from '../src/quiet.ts';
 
 const AUDIOTEE = process.env.AUDIOTEE ?? `${homedir()}/.local/src/audiotee/.build/release/audiotee`;
 const spotify = () => { try { return execFileSync('pgrep', ['-x', 'Spotify'], { encoding: 'utf8' }).trim().split('\n')[0]; } catch { return ''; } };
@@ -23,6 +23,17 @@ const repoint = async () => {
 
 let scene = '', tap: ChildProcess | null = null, tapped = '', device = output();
 const stop = () => { tap?.kill(); tap = null; };
+
+// Talking: Spotify to a quarter for the room and the stream, back to where it was on leaving. Only while Spotify runs
+// (AppleScript would launch it). ponytail: a restart while in Notfocussed takes the lowered volume as full.
+const volume = (set?: number) => execFileSync('osascript', ['-e', `tell application "Spotify" to ${set === undefined ? 'return sound volume' : `set sound volume to ${set}`}`], { encoding: 'utf8' }).trim();
+let full: number | null = null;
+const duck = () => {
+  if (!spotify()) return;
+  const talk = !roomMuted(scene);
+  if (talk && full === null) full = Number(volume()), volume(talkVolume(full)), console.log(`${scene}: Spotify ${full} → ${talkVolume(full)}`);
+  if (!talk && full !== null) volume(full), console.log(`${scene}: Spotify back to ${full}`), full = null;
+};
 const apply = () => {
   if (!scene) return; // OBS not reached yet
   const now = output();
@@ -41,7 +52,7 @@ const apply = () => {
   }
 };
 setInterval(apply, 5_000);
-process.on('SIGTERM', () => { stop(); process.exit(0); });
+process.on('SIGTERM', () => { stop(); if (full !== null) volume(full); process.exit(0); });
 
 const connect = () => {
   const cfg = JSON.parse(readFileSync(`${homedir()}/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json`, 'utf8'));
@@ -51,8 +62,8 @@ const connect = () => {
     if (op === 0) ws.send(JSON.stringify({ op: 1, d: { rpcVersion: 1, eventSubscriptions: 1 << 2, // Scenes events
       ...(d.authentication && { authentication: obsAuth(cfg.server_password, d.authentication.salt, d.authentication.challenge) }) } }));
     if (op === 2) ws.send(JSON.stringify({ op: 6, d: { requestType: 'GetCurrentProgramScene', requestId: 'now' } }));
-    if (op === 7 && d.requestId === 'now') scene = d.responseData.currentProgramSceneName, apply();
-    if (op === 5 && d.eventType === 'CurrentProgramSceneChanged') scene = d.eventData.sceneName, apply();
+    if (op === 7 && d.requestId === 'now') scene = d.responseData.currentProgramSceneName, apply(), duck();
+    if (op === 5 && d.eventType === 'CurrentProgramSceneChanged') scene = d.eventData.sceneName, apply(), duck();
   };
   ws.onclose = () => setTimeout(connect, 5_000); // OBS still starting, or restarted
 };
