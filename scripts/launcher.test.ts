@@ -26,11 +26,16 @@ describe('npm run launcher', () => {
     expect(kill < start && start < obs).toBe(true);
     expect(body).toContain(`cd "${process.cwd()}"`);
   });
-  it('runs the Spotify scene switch next to OBS and stops it when OBS quits', () => {
-    const quiet = body.indexOf('scripts/spotify-quiet.ts'), obs = body.indexOf('open -W -a OBS');
-    expect(quiet).toBeGreaterThan(-1);
-    expect(quiet).toBeLessThan(obs);
-    expect(body.search(/kill .*\$QUIET/)).toBeGreaterThan(obs);
+  it('installs the Spotify scene switch as a LaunchAgent: kept alive by macOS, not tied to a terminal or the app', () => {
+    const plist = readFileSync(join(home, 'Library/LaunchAgents/tv.heyisamy.spotify-quiet.plist'), 'utf8');
+    expect(plist).toContain('scripts/spotify-quiet.ts');
+    expect(plist).toMatch(/<key>KeepAlive<\/key>\s*<true\/>/);
+    expect(plist).toMatch(/<key>RunAtLoad<\/key>\s*<true\/>/);
+    expect(plist).toContain(`<string>${process.cwd()}</string>`);
+  });
+  it('loads the switch agent when the app starts instead of running a copy of its own', () => {
+    expect(body).toContain('launchctl bootstrap');
+    expect(body).not.toMatch(/node"? scripts\/spotify-quiet\.ts/);
   });
   it('stops the bot when OBS quits', () => {
     expect(body.indexOf('kill $BOT')).toBeGreaterThan(body.indexOf('open -W -a OBS'));

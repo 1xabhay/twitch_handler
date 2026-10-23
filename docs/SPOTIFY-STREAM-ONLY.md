@@ -88,7 +88,7 @@ The Break scene: the full pixel city replaces the camera. The BRB badge goes und
 
 ## Follow the scene
 
-[scripts/spotify-quiet.ts](../scripts/spotify-quiet.ts) does the procedure for you. It watches the OBS scene over obs-websocket. In Focus and Break it starts the muted tap. In Notfocussed it stops the tap, so Spotify plays in the room while you talk. It taps Spotify again when Spotify restarts, and when the Mac output device changes it restarts the tap and the OBS Spotify capture. Run it with `make spotify-quiet`, or let the launcher start it with OBS.
+[scripts/spotify-quiet.ts](../scripts/spotify-quiet.ts) does the procedure for you. It watches the OBS scene over obs-websocket. In Focus and Break it starts the muted tap. In Notfocussed it stops the tap, so Spotify plays in the room while you talk. It taps Spotify again when Spotify restarts, and when the Mac output device changes it restarts the tap and the OBS Spotify capture. The launcher installs it as a macOS LaunchAgent (`~/Library/LaunchAgents/tv.heyisamy.spotify-quiet.plist`), so it keeps running when you close a terminal or editor, restarts if it crashes, and hands the room back (tap off, volume restored) when OBS closes. Log: `~/Library/Logs/isamy-spotify-quiet.log`. For a one-off run without the agent: `make spotify-quiet`.
 
 To hear Spotify in the room in Focus or Break too, add an empty source named "Room music" to that scene and click its eye icon in the OBS Sources list. The script sees it at once; hide it again to mute the room.
 

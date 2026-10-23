@@ -72,6 +72,12 @@ const connect = () => {
       apply(), duck();
     }
   };
-  ws.onclose = () => setTimeout(connect, 5_000); // OBS still starting, or restarted
+  ws.onclose = () => { // OBS closed (or still starting): hand the room back, Spotify as it was
+    if (scene) console.log('OBS gone: Spotify back on the Mac');
+    scene = '', roomMusic = false, stop();
+    if (full !== null && spotify()) volume(full);
+    full = null;
+    setTimeout(connect, 5_000);
+  };
 };
 connect();
