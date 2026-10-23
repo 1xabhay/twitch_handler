@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOutput, fullVolume, roomMuted, talkVolume } from './quiet.ts';
+import { captureWatch, defaultOutput, fullVolume, roomMuted, talkVolume } from './quiet.ts';
 
 describe('roomMuted', () => {
   it('keeps Spotify off the Mac speakers while the mic is off (Focus, Break)', () => {
@@ -51,5 +51,33 @@ describe('fullVolume', () => {
     expect(fullVolume(100, 66)).toBe(100);
     expect(fullVolume(40, 66)).toBe(40);
     expect(fullVolume(65, null)).toBe(65);
+  });
+});
+
+describe('captureWatch', () => {
+  // OBS's Spotify capture sometimes goes silent and stays silent while Spotify plays on (seen 3 times live; the trigger is
+  // unknown, re-pointing the source always brings it back). Watch the input peak and re-point after 10 s of silence.
+  const playing = { playing: true, volume: 100 }, quiet = 0.0001, loud = 0.2;
+  const run = (steps: { at: number; peak: number; playing?: boolean; volume?: number }[]) => {
+    let state = captureWatch.start, fixes: number[] = [];
+    for (const { at, peak, ...rest } of steps) {
+      const r = captureWatch.step(state, { ...playing, ...rest, peak, now: at });
+      state = r.state; if (r.repoint) fixes.push(at);
+    }
+    return fixes;
+  };
+  it('re-points once after 10 s of silence while Spotify plays', () => {
+    expect(run([{ at: 0, peak: quiet }, { at: 5_000, peak: quiet }, { at: 10_000, peak: quiet }, { at: 11_000, peak: quiet }])).toEqual([10_000]);
+  });
+  it('leaves it alone while sound comes through, even with quiet gaps under 10 s', () => {
+    expect(run([{ at: 0, peak: quiet }, { at: 6_000, peak: loud }, { at: 12_000, peak: quiet }, { at: 20_000, peak: quiet }])).toEqual([]);
+  });
+  it('never re-points while Spotify is paused or at volume 0 (silence is expected then)', () => {
+    expect(run([{ at: 0, peak: quiet, playing: false }, { at: 20_000, peak: quiet, playing: false }])).toEqual([]);
+    expect(run([{ at: 0, peak: quiet, volume: 0 }, { at: 20_000, peak: quiet, volume: 0 }])).toEqual([]);
+  });
+  it('waits 30 s before trying again if the silence goes on', () => {
+    const steps = Array.from({ length: 13 }, (_, i) => ({ at: i * 5_000, peak: quiet }));
+    expect(run(steps)).toEqual([10_000, 40_000]);
   });
 });

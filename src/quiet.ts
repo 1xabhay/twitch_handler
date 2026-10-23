@@ -14,3 +14,20 @@ export const talkVolume = (full: number) => (full > 0 ? Math.max(1, Math.round(f
 // The volume to restore after talking. Spotify reads back a step under what was set, so a reading within 2 of the
 // last restored volume is that volume, not a change.
 export const fullVolume = (read: number, last: number | null) => (last !== null && Math.abs(read - last) <= 2 ? last : read);
+
+// Watchdog for OBS's Spotify capture: it sometimes goes silent and stays silent while Spotify plays on (trigger unknown;
+// re-pointing the source always revives it). Re-point after 10 s of silence (input peak under -60 dB) while Spotify
+// plays above volume 0, then wait 30 s before trying again.
+type Watch = { silentSince: number | null; lastFix: number };
+type Reading = { playing: boolean; volume: number; peak: number; now: number };
+const SILENT = 0.001, AFTER = 10_000, COOLDOWN = 30_000;
+export const captureWatch = {
+  start: { silentSince: null, lastFix: -Infinity } as Watch,
+  step: (w: Watch, { playing, volume, peak, now }: Reading): { state: Watch; repoint: boolean } => {
+    if (!playing || volume <= 0 || peak >= SILENT) return { state: { ...w, silentSince: null }, repoint: false };
+    const since = w.silentSince ?? now;
+    return now - since >= AFTER && now - w.lastFix >= COOLDOWN
+      ? { state: { silentSince: now, lastFix: now }, repoint: true }
+      : { state: { ...w, silentSince: since }, repoint: false };
+  },
+};

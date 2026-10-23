@@ -7,18 +7,19 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { obsAuth } from '../src/obs.ts';
 import { obs } from '../src/obsws.ts';
-import { defaultOutput, fullVolume, roomMuted, talkVolume } from '../src/quiet.ts';
+import { captureWatch, defaultOutput, fullVolume, roomMuted, talkVolume } from '../src/quiet.ts';
 
 const AUDIOTEE = process.env.AUDIOTEE ?? `${homedir()}/.local/src/audiotee/.build/release/audiotee`;
 const spotify = () => { try { return execFileSync('pgrep', ['-x', 'Spotify'], { encoding: 'utf8' }).trim().split('\n')[0]; } catch { return ''; } };
 
 const output = () => { try { return defaultOutput(execFileSync('system_profiler', ['SPAudioDataType'], { encoding: 'utf8' })); } catch { return ''; } };
 // OBS's app capture goes silent after an output change too: point it away and back to restart it.
+const SPOTIFY_APP = 'com.spotify.client';
 const repoint = async () => {
   const [{ inputSettings }] = await obs([['GetInputSettings', { inputName: 'Spotify' }]]);
   await obs([['SetInputSettings', { inputName: 'Spotify', inputSettings: { application: '' } }]]);
   await new Promise((r) => setTimeout(r, 1_000));
-  await obs([['SetInputSettings', { inputName: 'Spotify', inputSettings }]]);
+  await obs([['SetInputSettings', { inputName: 'Spotify', inputSettings: { ...inputSettings, application: SPOTIFY_APP } }]]); // never restore an empty pick
 };
 
 let roomMusic = false; // the live scene's "Room music" item is visible
@@ -57,7 +58,17 @@ const apply = () => {
     console.log(`${scene}: Spotify muted on the Mac (pid ${pid})`);
   }
 };
-setInterval(apply, 5_000);
+// Watchdog (captureWatch): Spotify playing but OBS hears nothing for 10 s → re-point the capture, logged with the time.
+let watch = captureWatch.start, peak = 0;
+const player = () => execFileSync('osascript', ['-e', 'tell application "Spotify" to return (player state as string) & "," & sound volume'], { encoding: 'utf8' }).trim().split(',');
+const guard = () => {
+  if (!scene || !spotify()) return void (peak = 0);
+  const [state, vol] = player(), r = captureWatch.step(watch, { playing: state === 'playing', volume: Number(vol), peak, now: Date.now() });
+  watch = r.state, peak = 0;
+  if (r.repoint) console.log(`${new Date().toISOString()} ${scene}: OBS hears no Spotify for 10 s while it plays, re-pointing the capture`),
+    repoint().catch((e) => console.log('repoint failed:', e.message));
+};
+setInterval(() => (apply(), guard()), 5_000);
 process.on('SIGTERM', () => { stop(); if (full !== null) volume(full); process.exit(0); });
 
 const connect = () => {
@@ -65,13 +76,15 @@ const connect = () => {
   const ws = new WebSocket(`ws://127.0.0.1:${cfg.server_port}`);
   ws.onmessage = ({ data }) => {
     const { op, d } = JSON.parse(String(data));
-    if (op === 0) ws.send(JSON.stringify({ op: 1, d: { rpcVersion: 1, eventSubscriptions: (1 << 2) | (1 << 7), // Scenes + SceneItems events
+    if (op === 0) ws.send(JSON.stringify({ op: 1, d: { rpcVersion: 1, eventSubscriptions: (1 << 2) | (1 << 7) | (1 << 16), // Scenes + SceneItems + InputVolumeMeters events
       ...(d.authentication && { authentication: obsAuth(cfg.server_password, d.authentication.salt, d.authentication.challenge) }) } }));
     const items = () => ws.send(JSON.stringify({ op: 6, d: { requestType: 'GetSceneItemList', requestId: 'items', requestData: { sceneName: scene } } }));
     if (op === 2) ws.send(JSON.stringify({ op: 6, d: { requestType: 'GetCurrentProgramScene', requestId: 'now' } }));
     if (op === 7 && d.requestId === 'now') scene = d.responseData.currentProgramSceneName, items();
     if (op === 5 && d.eventType === 'CurrentProgramSceneChanged') scene = d.eventData.sceneName, items();
     if (op === 5 && d.eventType === 'SceneItemEnableStateChanged' && d.eventData.sceneName === scene) items();
+    if (op === 5 && d.eventType === 'InputVolumeMeters') // input peak, before the fader: the fader never fakes silence
+      for (const i of d.eventData.inputs) if (i.inputName === 'Spotify') peak = Math.max(peak, ...i.inputLevelsMul.map((c: number[]) => c[2] ?? 0));
     if (op === 7 && d.requestId === 'items') {
       roomMusic = d.responseData.sceneItems?.some((i: any) => i.sourceName === 'Room music' && i.sceneItemEnabled) ?? false;
       apply(), duck();

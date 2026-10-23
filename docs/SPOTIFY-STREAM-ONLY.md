@@ -61,6 +61,7 @@ Measured result: the OBS Spotify meter stayed at about -17 dB with the tap on an
 | Tap worked, then Spotify plays again | Spotify restarted and has a new process ID | Do step 3 again. |
 | Tap worked, then Spotify plays again; OBS Spotify meter silent too | The Mac output device changed (headphones, a removed virtual device). The tap and the OBS capture stay on the old device. | Stop and start the tap. In OBS, set the Spotify source to another app and back. The switch script does both by itself. |
 | OBS Spotify meter is silent | Spotify is turned down before OBS (per-app volume app, Spotify volume 0) | Set Spotify to full volume in other tools. Use the tap for the mute. |
+| OBS Spotify meter silent while Spotify plays, nothing else changed | OBS's app capture went stale (seen live 3 times; trigger unknown, also the menu bar recording indicator's Stop) | Point the Spotify source to another app and back. The switch script's watchdog does it after 10 s of silence and logs the time. |
 | Mic is live in a scene without the mic | Mic is a global audio device: it plays in all scenes | Settings, Audio, Global Audio Devices, Mic/Auxiliary Audio: Disabled. Add the mic as a source to the talk scenes only. |
 
 Two other approaches did not work for this:
