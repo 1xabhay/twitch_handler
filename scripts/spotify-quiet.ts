@@ -23,7 +23,12 @@ const repoint = async () => {
 
 let roomMusic = false; // the live scene's "Room music" item is visible
 let scene = '', tap: ChildProcess | null = null, tapped = '', device = output();
-const stop = () => { tap?.kill(); tap = null; };
+// AudioTee can ignore SIGTERM (seen under launchd: the room stayed muted with Room music on), so force it after 1 s.
+const stop = () => {
+  const t = tap; tap = null;
+  t?.kill();
+  if (t) setTimeout(() => { if (t.exitCode === null && t.signalCode === null) t.kill('SIGKILL'); }, 1_000);
+};
 
 // Talking: Spotify to a quarter for the room and the stream, back to where it was on leaving. Only while Spotify runs
 // (AppleScript would launch it). ponytail: a restart while in Notfocussed takes the lowered volume as full.
