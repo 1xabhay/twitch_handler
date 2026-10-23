@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds ~/Applications/Isamy Stream.app: starts the bot, opens Background Music and OBS, stops the bot when OBS quits.
+# Builds ~/Applications/Isamy Stream.app: starts the bot and the Spotify scene switch, opens OBS, stops the bot when OBS quits.
 # Usage: npm run launcher   (re-run after moving the project folder)
 set -e
 PROJECT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,9 +26,10 @@ pkill -f "src/main.ts" 2>/dev/null; sleep 1   # never run two bots
 echo "--- \$(date) starting bot" >> "$LOG"
 "$NODE" --env-file=.env src/main.ts >> "$LOG" 2>&1 &
 BOT=\$!
-open -g -a "Background Music" 2>/dev/null || true   # per-app volume: Spotify at 0 = stream-only music
+"$NODE" scripts/spotify-quiet.ts >> "$LOG" 2>&1 &   # Spotify off the Mac speakers in Focus/Break
+QUIET=\$!
 open -W -a OBS                                # wait here until OBS quits
-kill \$BOT 2>/dev/null
+kill \$BOT \$QUIET 2>/dev/null
 echo "--- \$(date) bot stopped (OBS closed)" >> "$LOG"
 LAUNCH
 chmod +x "$APP/Contents/MacOS/launch.new"

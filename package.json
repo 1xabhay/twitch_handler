@@ -15,7 +15,8 @@
     "rewards:check": "node --env-file=.env scripts/rewards-check.ts",
     "login:spotify": "node --env-file=.env scripts/spotify-login.ts",
     "launcher": "sh scripts/make-launcher.sh",
-    "obs:scenes": "node scripts/obs-scenes.ts"
+    "obs:scenes": "node scripts/obs-scenes.ts",
+    "spotify:quiet": "node scripts/spotify-quiet.ts"
   },
   "keywords": [],
   "author": "",
