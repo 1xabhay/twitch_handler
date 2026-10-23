@@ -1,18 +1,53 @@
 <!doctype html>
-<!-- Mic-off badge (OBS browser source, file:// URL, 380x64). Focus: mic.html, Break: mic.html?brb. Static: the scene carries the state. -->
+<!-- Mic status + now playing, under the tall timer panel (OBS browser source 580x112). Focus: /mic, Break: /mic?brb.
+     The scene carries the mic state; the song comes from the bot's state (hidden row when nothing plays). -->
 <meta charset="utf-8">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap">
 <style>
   html, body { margin: 0; background: transparent; }
-  .badge { box-sizing: border-box; width: 380px; height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 18px;
-           background: linear-gradient(160deg, #0C081C, #20062C); border: 2px solid #FF2E88;
-           box-shadow: 0 0 14px rgba(255,46,136,.5), inset 0 0 22px rgba(0,240,255,.12); color: #E8F6FF; }
-  .tag { font: 700 15px 'Orbitron', sans-serif; letter-spacing: 3px; padding: 4px 8px; border: 1.5px solid currentColor;
+  .bar { box-sizing: border-box; width: 580px; height: 112px; padding: 12px 18px; display: flex; flex-direction: column; justify-content: center; gap: 10px;
+         background: linear-gradient(160deg, rgba(12,8,28,.8), rgba(32,6,44,.8)); border: 2px solid #FF2E88; color: #E8F6FF;
+         box-shadow: 0 0 14px rgba(255,46,136,.5), inset 0 0 22px rgba(0,240,255,.12); font-family: 'Share Tech Mono', monospace; }
+  .row { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .tag { font: 700 16px 'Orbitron', sans-serif; letter-spacing: 3px; padding: 4px 9px; border: 1.5px solid currentColor;
          color: #FF2E88; text-shadow: 0 0 8px rgba(255,46,136,.9); animation: breathe 4s ease-in-out infinite; }
-  .note { font: 14px 'Share Tech Mono', monospace; letter-spacing: 2px; text-transform: uppercase; color: rgba(200,230,255,.8); }
+  .note { font-size: 16px; letter-spacing: 2px; text-transform: uppercase; color: rgba(200,230,255,.8); }
+  .song { display: none; padding-top: 10px; border-top: 1px solid rgba(0,240,255,.25); }
+  .song.on { display: flex; }
+  .art { width: 34px; height: 34px; flex: none; border: 1px solid rgba(0,240,255,.6); box-shadow: 0 0 8px rgba(0,240,255,.4); object-fit: cover; }
+  .eq { flex: none; display: flex; align-items: flex-end; gap: 2px; height: 16px; }
+  .eq i { width: 3px; background: #00F0FF; box-shadow: 0 0 6px #00F0FF; animation: eq 1.6s ease-in-out infinite; }
+  .eq i:nth-child(2) { animation-delay: -.5s; } .eq i:nth-child(3) { animation-delay: -1s; }
+  .text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 17px; letter-spacing: 1px; }
+  .title { color: #F2F7FF; text-shadow: 0 0 6px rgba(0,240,255,.7); }
+  .artist { color: #00F0FF; opacity: .85; }
+  .sr { flex: none; margin-left: auto; font-size: 13px; letter-spacing: 2px; color: #FF2E88; opacity: .8; }
   @keyframes breathe { 50% { opacity: .65; } }
+  @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 16px; } }
 </style>
-<div class="badge"><span class="tag">MIC OFF</span><span class="note">heads down, chat away</span></div>
+<div class="bar">
+  <div class="row"><span class="tag" id="tag">MIC OFF</span><span class="note" id="note">heads down, chat away</span></div>
+  <div class="row song" id="song">
+    <img class="art" id="art" alt=""><span class="eq"><i></i><i></i><i></i></span>
+    <span class="text"><span class="title" id="title"></span> <span class="artist" id="artist"></span></span>
+    <span class="sr">!SR</span>
+  </div>
+</div>
 <script>
-  if (location.search === '?brb') document.querySelector('.badge').innerHTML = '<span class="tag">BRB</span><span class="note">mic off, back soon</span>';
+  const $ = (id) => document.getElementById(id);
+  if (location.search === '?brb') $('tag').textContent = 'BRB', $('note').textContent = 'mic off, back soon';
+  let boot = null;
+  new EventSource('/events').onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type !== 'state') return;
+    if (msg.boot && boot && msg.boot !== boot) return location.reload();
+    boot = msg.boot ?? boot;
+    const s = msg.song;
+    $('song').classList.toggle('on', !!s);
+    if (!s) return;
+    $('title').textContent = s.name;
+    $('artist').textContent = '· ' + s.artists.join(', ');
+    $('art').src = s.art ?? '';
+    $('art').style.display = s.art ? '' : 'none';
+  };
 </script>

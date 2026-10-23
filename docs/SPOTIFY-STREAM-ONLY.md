@@ -70,7 +70,7 @@ Two other approaches did not work for this:
 
 ## Bonus: scenes that show the mic state
 
-When the mic is a normal source, each scene controls it. A small HTML badge ([public/mic.html](../public/mic.html)) tells chat when the mic is off. Add it as an OBS browser source, 380x64, URL `file:///<path>/public/mic.html` (Focus) or `.../mic.html?brb` (Break).
+When the mic is a normal source, each scene controls it. A small HTML badge ([public/mic.html](../public/mic.html)) tells chat when the mic is off. It also shows the song playing (from the bot). Add it as an OBS browser source, 580x112, URL `http://localhost:3001/mic` (Focus) or `http://localhost:3001/mic?brb` (Break).
 
 | Scene | Voice | Spotify on stream | Badge |
 |---|---|---|---|

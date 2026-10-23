@@ -23,7 +23,7 @@ export const startOverlay = (port: number, snapshot: () => unknown) => {
       req.on('close', () => clients.delete(res));
       return;
     }
-    const page = url.match(/^\/(town|timer|music|workout)(?:\?.*)?$/)?.[1];
+    const page = url.match(/^\/(town|timer|music|workout|mic)(?:\?.*)?$/)?.[1];
     if (page) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); // OBS must never show a stale page
       return res.end(await readFile(`public/${page}.html`));
