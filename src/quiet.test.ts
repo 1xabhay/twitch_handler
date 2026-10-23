@@ -31,9 +31,9 @@ describe('defaultOutput', () => {
 });
 
 describe('talkVolume', () => {
-  it('drops Spotify to 3/8 while talking (room and stream together: OBS captures after the app volume; 1/4 was too quiet on stream)', () => {
-    expect(talkVolume(100)).toBe(38);
-    expect(talkVolume(66)).toBe(25);
+  it('drops Spotify to 7/16 while talking (room and stream together: OBS captures after the app volume; 1/4 and 3/8 were too quiet on stream)', () => {
+    expect(talkVolume(100)).toBe(44);
+    expect(talkVolume(66)).toBe(29);
   });
   it('never mutes a quiet song completely', () => {
     expect(talkVolume(2)).toBe(1);

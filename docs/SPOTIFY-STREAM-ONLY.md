@@ -93,4 +93,4 @@ The Break scene: the full pixel city replaces the camera. The BRB badge goes und
 
 To hear Spotify in the room in Focus or Break too, add an empty source named "Room music" to that scene and click its eye icon in the OBS Sources list. The script sees it at once; hide it again to mute the room.
 
-In Notfocussed the script also drops the Spotify volume to 3/8, for the room and the stream together (OBS captures Spotify after its own volume). When you leave Notfocussed, it puts the volume back.
+In Notfocussed the script also drops the Spotify volume to 7/16, for the room and the stream together (OBS captures Spotify after its own volume). When you leave Notfocussed, it puts the volume back.

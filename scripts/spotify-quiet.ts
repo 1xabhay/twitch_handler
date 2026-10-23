@@ -31,7 +31,7 @@ const stop = () => {
   if (t) setTimeout(() => { if (t.exitCode === null && t.signalCode === null) t.kill('SIGKILL'); }, 1_000);
 };
 
-// Talking: Spotify to 3/8 for the room and the stream, back to where it was on leaving. Only while Spotify runs
+// Talking: Spotify to 7/16 for the room and the stream, back to where it was on leaving. Only while Spotify runs
 // (AppleScript would launch it). ponytail: a restart while in Notfocussed takes the lowered volume as full.
 const volume = (set?: number) => execFileSync('osascript', ['-e', `tell application "Spotify" to ${set === undefined ? 'return sound volume' : `set sound volume to ${set}`}`], { encoding: 'utf8' }).trim();
 let full: number | null = null, last: number | null = null;

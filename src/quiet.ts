@@ -1,5 +1,5 @@
 // Stream-only Spotify (docs/SPOTIFY-STREAM-ONLY.md): a muted process tap keeps Spotify off the Mac speakers while
-// OBS still captures it. The talking scene keeps the room music, at 3/8 (Spotify's own volume lowers both).
+// OBS still captures it. The talking scene keeps the room music, at 7/16 (Spotify's own volume lowers both).
 // `roomMusic` = the scene's "Room music" item is visible in OBS (an eye to click: Spotify on the speakers in Focus too).
 export const roomMuted = (scene: string, roomMusic = false) => scene !== 'Notfocussed' && !roomMusic;
 
@@ -8,8 +8,8 @@ export const roomMuted = (scene: string, roomMusic = false) => scene !== 'Notfoc
 export const defaultOutput = (report: string) =>
   report.match(/^ {8}([^\n]+):\n\n(?: {10}[^\n]*\n)*? {10}Default Output Device: Yes/m)?.[1] ?? '';
 
-// Spotify's volume while talking (Notfocussed): 3/8 of the volume it had (1/4 was too quiet on stream), never fully silent.
-export const talkVolume = (full: number) => (full > 0 ? Math.max(1, Math.round((full * 3) / 8)) : 0);
+// Spotify's volume while talking (Notfocussed): 7/16 of the volume it had (1/4 and 3/8 were too quiet on stream), never fully silent.
+export const talkVolume = (full: number) => (full > 0 ? Math.max(1, Math.round((full * 7) / 16)) : 0);
 
 // The volume to restore after talking. Spotify reads back a step under what was set, so a reading within 2 of the
 // last restored volume is that volume, not a change.
