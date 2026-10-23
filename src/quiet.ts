@@ -1,6 +1,7 @@
 // Stream-only Spotify (docs/SPOTIFY-STREAM-ONLY.md): a muted process tap keeps Spotify off the Mac speakers while
 // OBS still captures it. The talking scene keeps the room music, at a quarter (Spotify's own volume lowers both).
-export const roomMuted = (scene: string) => scene !== 'Notfocussed';
+// `roomMusic` = the scene's "Room music" item is visible in OBS (an eye to click: Spotify on the speakers in Focus too).
+export const roomMuted = (scene: string, roomMusic = false) => scene !== 'Notfocussed' && !roomMusic;
 
 // The default output device in `system_profiler SPAudioDataType`. A tap and OBS's app capture both bind to the output
 // at start and go stale when it changes (headphones, a removed virtual device), so the switch resets both.

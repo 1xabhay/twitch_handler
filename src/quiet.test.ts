@@ -9,6 +9,11 @@ describe('roomMuted', () => {
   it('lets Spotify play in the room in Notfocussed, the talking scene', () => {
     expect(roomMuted('Notfocussed')).toBe(false);
   });
+  it('lets Spotify play in the room in any scene while its "Room music" eye is on in OBS', () => {
+    expect(roomMuted('Focus', true)).toBe(false);
+    expect(roomMuted('Break', true)).toBe(false);
+    expect(roomMuted('Focus', false)).toBe(true);
+  });
 });
 
 describe('defaultOutput', () => {
