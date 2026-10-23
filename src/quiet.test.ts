@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOutput, roomMuted, talkVolume } from './quiet.ts';
+import { defaultOutput, fullVolume, roomMuted, talkVolume } from './quiet.ts';
 
 describe('roomMuted', () => {
   it('keeps Spotify off the Mac speakers while the mic is off (Focus, Break)', () => {
@@ -33,5 +33,18 @@ describe('talkVolume', () => {
   it('never mutes a quiet song completely', () => {
     expect(talkVolume(2)).toBe(1);
     expect(talkVolume(0)).toBe(0);
+  });
+});
+
+describe('fullVolume', () => {
+  // Spotify reads back one step under what was set (66 → 65 → 64 …): restoring the read value drifts down.
+  it('keeps the volume it restored last when Spotify reads back a step or two under it', () => {
+    expect(fullVolume(65, 66)).toBe(66);
+    expect(fullVolume(64, 66)).toBe(66);
+  });
+  it('takes a real change by the streamer', () => {
+    expect(fullVolume(100, 66)).toBe(100);
+    expect(fullVolume(40, 66)).toBe(40);
+    expect(fullVolume(65, null)).toBe(65);
   });
 });

@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { obsAuth } from '../src/obs.ts';
 import { obs } from '../src/obsws.ts';
-import { defaultOutput, roomMuted, talkVolume } from '../src/quiet.ts';
+import { defaultOutput, fullVolume, roomMuted, talkVolume } from '../src/quiet.ts';
 
 const AUDIOTEE = process.env.AUDIOTEE ?? `${homedir()}/.local/src/audiotee/.build/release/audiotee`;
 const spotify = () => { try { return execFileSync('pgrep', ['-x', 'Spotify'], { encoding: 'utf8' }).trim().split('\n')[0]; } catch { return ''; } };
@@ -27,11 +27,11 @@ const stop = () => { tap?.kill(); tap = null; };
 // Talking: Spotify to a quarter for the room and the stream, back to where it was on leaving. Only while Spotify runs
 // (AppleScript would launch it). ponytail: a restart while in Notfocussed takes the lowered volume as full.
 const volume = (set?: number) => execFileSync('osascript', ['-e', `tell application "Spotify" to ${set === undefined ? 'return sound volume' : `set sound volume to ${set}`}`], { encoding: 'utf8' }).trim();
-let full: number | null = null;
+let full: number | null = null, last: number | null = null;
 const duck = () => {
   if (!spotify()) return;
   const talk = !roomMuted(scene);
-  if (talk && full === null) full = Number(volume()), volume(talkVolume(full)), console.log(`${scene}: Spotify ${full} → ${talkVolume(full)}`);
+  if (talk && full === null) full = last = fullVolume(Number(volume()), last), volume(talkVolume(full)), console.log(`${scene}: Spotify ${full} → ${talkVolume(full)}`);
   if (!talk && full !== null) volume(full), console.log(`${scene}: Spotify back to ${full}`), full = null;
 };
 const apply = () => {

@@ -9,3 +9,7 @@ export const defaultOutput = (report: string) =>
 
 // Spotify's volume while talking (Notfocussed): a quarter of the volume it had, never fully silent.
 export const talkVolume = (full: number) => (full > 0 ? Math.max(1, Math.round(full / 4)) : 0);
+
+// The volume to restore after talking. Spotify reads back a step under what was set, so a reading within 2 of the
+// last restored volume is that volume, not a change.
+export const fullVolume = (read: number, last: number | null) => (last !== null && Math.abs(read - last) <= 2 ? last : read);
